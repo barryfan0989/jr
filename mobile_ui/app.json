@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "mobile_ui",
+    "slug": "mobile_ui",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": ["**/*"]
+  }
+}
