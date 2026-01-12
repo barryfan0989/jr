@@ -1,19 +1,22 @@
 {
-  "name": "mobile_ui",
+  "name": "concert_notification_app",
   "version": "1.0.0",
+  "description": "演唱會通知助手 - 爬蟲 + 關注 + 提醒",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "eject": "expo eject"
   },
   "dependencies": {
     "expo": "~54.0.30",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "babel-preset-expo": "^54.0.9"
