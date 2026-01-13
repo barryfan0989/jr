@@ -50,11 +50,6 @@ const translations = {
     unfollow: "取消關注",
     reminder: "設置提醒",
     removeReminder: "移除提醒",
-    reviews: "評價",
-    addReview: "新增評價",
-    rating: "評分",
-    comment: "評論",
-    submit: "提交",
     cancel: "取消",
     deleteConfirm: "確定要登出嗎?",
     confirmLogout: "登出",
@@ -93,11 +88,6 @@ const translations = {
     unfollow: "Unfollow",
     reminder: "Set Reminder",
     removeReminder: "Remove Reminder",
-    reviews: "Reviews",
-    addReview: "Add Review",
-    rating: "Rating",
-    comment: "Comment",
-    submit: "Submit",
     cancel: "Cancel",
     deleteConfirm: "Are you sure you want to logout?",
     confirmLogout: "Logout",
@@ -433,10 +423,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
   const [userFollows, setUserFollows] = useState([]);
   const [userReminders, setUserReminders] = useState({});
   const [currentTab, setCurrentTab] = useState("all");
-  const [reviews, setReviews] = useState([]);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewData, setReviewData] = useState({ rating: 5, comment: "" });
-  const [avgRating, setAvgRating] = useState(0);
 
   useEffect(() => {
     loadConcerts();
@@ -480,19 +466,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
       }
     } catch (error) {
       console.error("載入提醒失敗:", error);
-    }
-  };
-
-  const loadReviews = async (concertId) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/reviews/${concertId}`, { credentials: 'include' });
-      const data = await response.json();
-      if (data.status === "success") {
-        setReviews(data.reviews || []);
-        setAvgRating(data.avg_rating || 0);
-      }
-    } catch (error) {
-      console.error("載入評價失敗:", error);
     }
   };
 
@@ -553,48 +526,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
     }
   };
 
-  const submitReview = async () => {
-    if (!reviewData.comment.trim()) {
-      Alert.alert(getTranslation("error", language), "請輸入評論");
-      return;
-    }
-
-    try {
-      console.log('Submitting review for concert:', selectedConcert.id);
-      const response = await fetch(
-        `${API_BASE_URL}/reviews/${selectedConcert.id}`,
-        {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            'X-User-Id': user.user_id 
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            rating: reviewData.rating,
-            comment: reviewData.comment,
-          }),
-        }
-      );
-
-      console.log('Review response status:', response.status);
-      const data = await response.json();
-      console.log('Review response data:', data);
-      
-      if (data.status === "success") {
-        Alert.alert(getTranslation("success", language), "評價已提交");
-        setReviewData({ rating: 5, comment: "" });
-        setShowReviewModal(false);
-        loadReviews(selectedConcert.id);
-      } else {
-        Alert.alert(getTranslation("error", language), data.message || "評價提交失敗");
-      }
-    } catch (error) {
-      console.error('提交評價錯誤:', error);
-      Alert.alert(getTranslation("error", language), `網路錯誤: ${error.message}`);
-    }
-  };
-
   const filteredConcerts = concerts.filter(
     (concert) =>
       concert.演出藝人?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -616,8 +547,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
         style={styles.concertCard}
         onPress={() => {
           setSelectedConcert(item);
-          loadReviews(item.id);
-          setShowReviewModal(false);
         }}
       >
         <View style={styles.concertContent}>
@@ -823,42 +752,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
                 </Text>
               </View>
 
-              <View style={styles.reviewSection}>
-                <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewTitle}>
-                    {getTranslation("reviews", language)}
-                  </Text>
-                  <Text style={styles.avgRating}>
-                    ⭐ {avgRating.toFixed(1)}
-                  </Text>
-                </View>
-
-                {reviews.length > 0 ? (
-                  reviews.slice(0, 3).map((review) => (
-                    <View key={review.id} style={styles.reviewItem}>
-                      <View style={styles.reviewMeta}>
-                        <Text style={styles.reviewUser}>{review.username}</Text>
-                        <Text style={styles.reviewRating}>
-                          {"⭐".repeat(review.rating)}
-                        </Text>
-                      </View>
-                      <Text style={styles.reviewComment}>{review.comment}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.noReviewText}>暫無評價</Text>
-                )}
-
-                <TouchableOpacity
-                  style={styles.addReviewButton}
-                  onPress={() => setShowReviewModal(true)}
-                >
-                  <Text style={styles.addReviewButtonText}>
-                    {getTranslation("addReview", language)}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={styles.largeButton}
@@ -886,86 +779,6 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
           </SafeAreaView>
         </Modal>
       )}
-
-      <Modal
-        visible={showReviewModal && !!selectedConcert}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowReviewModal(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowReviewModal(false)}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>
-              {getTranslation("addReview", language)}
-            </Text>
-            <View style={{ width: 30 }} />
-          </View>
-
-          <ScrollView contentContainerStyle={styles.modalContent}>
-            <Text style={styles.detailTitle}>
-              {selectedConcert?.演出藝人}
-            </Text>
-
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingLabel}>
-                {getTranslation("rating", language)}
-              </Text>
-              <View style={styles.ratingButtons}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    style={[
-                      styles.ratingButton,
-                      reviewData.rating >= star &&
-                        styles.ratingButtonActive,
-                    ]}
-                    onPress={() =>
-                      setReviewData({ ...reviewData, rating: star })
-                    }
-                  >
-                    <Text style={styles.ratingButtonText}>⭐</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.commentContainer}>
-              <Text style={styles.commentLabel}>
-                {getTranslation("comment", language)}
-              </Text>
-              <TextInput
-                style={styles.commentInput}
-                placeholder={getTranslation("comment", language)}
-                placeholderTextColor="#999"
-                value={reviewData.comment}
-                onChangeText={(text) =>
-                  setReviewData({
-                    ...reviewData,
-                    comment: text.slice(0, 500),
-                  })
-                }
-                multiline
-                numberOfLines={5}
-              />
-              <Text style={styles.charCount}>
-                {reviewData.comment.length}/500
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={submitReview}
-            >
-              <Text style={styles.submitButtonText}>
-                {getTranslation("submit", language)}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -1294,143 +1107,6 @@ const styles = StyleSheet.create({
   countdownText: {
     fontSize: 14,
     color: "#ff6b6b",
-    fontWeight: "700",
-  },
-
-  reviewSection: {
-    marginTop: 20,
-    marginBottom: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#24407a",
-  },
-  reviewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  reviewTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#f5f7ff",
-  },
-  avgRating: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fbbf24",
-  },
-  reviewItem: {
-    backgroundColor: "#24407a40",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-  },
-  reviewMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  reviewUser: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#c7d4ff",
-  },
-  reviewRating: {
-    fontSize: 13,
-  },
-  reviewComment: {
-    fontSize: 13,
-    color: "#e7edff",
-    lineHeight: 18,
-  },
-  noReviewText: {
-    fontSize: 13,
-    color: "#8fa3c7",
-    fontStyle: "italic",
-  },
-  addReviewButton: {
-    backgroundColor: "#10b981",
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  addReviewButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  ratingContainer: {
-    marginBottom: 20,
-  },
-  ratingLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#8fa3c7",
-    marginBottom: 10,
-  },
-  ratingButtons: {
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-  },
-  ratingButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: "#24407a",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  ratingButtonActive: {
-    backgroundColor: "#fbbf24",
-    borderColor: "#f59e0b",
-  },
-  ratingButtonText: {
-    fontSize: 24,
-  },
-
-  commentContainer: {
-    marginBottom: 20,
-  },
-  commentLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#8fa3c7",
-    marginBottom: 10,
-  },
-  commentInput: {
-    backgroundColor: "#162b54",
-    borderColor: "#24407a",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: "#f5f7ff",
-    fontSize: 14,
-    textAlignVertical: "top",
-  },
-  charCount: {
-    fontSize: 12,
-    color: "#8fa3c7",
-    textAlign: "right",
-    marginTop: 6,
-  },
-  submitButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
     fontWeight: "700",
   },
 

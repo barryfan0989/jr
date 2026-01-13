@@ -25,7 +25,6 @@ USERS_FILE = 'data/users.json'
 CONCERTS_FILE = 'data/concerts.json'
 FOLLOWS_FILE = 'data/follows.json'
 REMINDERS_FILE = 'data/reminders.json'
-REVIEWS_FILE = 'data/reviews.json'
 
 # 確保資料目錄存在
 os.makedirs('data', exist_ok=True)
@@ -38,7 +37,6 @@ def init_data_files():
         (CONCERTS_FILE, []),
         (FOLLOWS_FILE, {}),
         (REMINDERS_FILE, {}),
-        (REVIEWS_FILE, {}),
     ]:
         if not os.path.exists(file_path):
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -460,109 +458,6 @@ def delete_reminder(concert_id):
     return jsonify({
         'status': 'success',
         'message': '提醒已刪除'
-    }), 200
-
-# =====================
-# 評價 API
-# =====================
-
-@app.route('/api/reviews/<concert_id>', methods=['GET'])
-def get_reviews(concert_id):
-    """取得演唱會的所有評價"""
-    reviews = load_json(REVIEWS_FILE)
-    concert_reviews = reviews.get(concert_id, {})
-    review_list = []
-    
-    for review_id, review_data in concert_reviews.items():
-        review_list.append({
-            'id': review_id,
-            **review_data
-        })
-    
-    # 按評分和時間排序（高分優先）
-    review_list.sort(key=lambda x: (-x.get('rating', 0), x.get('created_at', '')), reverse=True)
-    
-    # 計算平均評分
-    avg_rating = 0
-    if review_list:
-        avg_rating = sum(r.get('rating', 0) for r in review_list) / len(review_list)
-    
-    return jsonify({
-        'status': 'success',
-        'concert_id': concert_id,
-        'avg_rating': round(avg_rating, 1),
-        'total_reviews': len(review_list),
-        'reviews': review_list
-    }), 200
-
-@app.route('/api/reviews/<concert_id>', methods=['POST'])
-def add_review(concert_id):
-    """新增評價"""
-    # 從 session 或 header 獲取 user_id
-    user_id = session.get('user_id') or request.headers.get('X-User-Id')
-    if not user_id:
-        return jsonify({'status': 'error', 'message': '未登入'}), 401
-    
-    data = request.json or {}
-    rating = data.get('rating', 0)
-    comment = data.get('comment', '').strip()
-    
-    # 驗證
-    if not (1 <= rating <= 5):
-        return jsonify({'status': 'error', 'message': '評分必須在 1-5 之間'}), 400
-    
-    if len(comment) > 500:
-        return jsonify({'status': 'error', 'message': '評論不能超過 500 個字元'}), 400
-    
-    users = load_json(USERS_FILE)
-    user = users.get(user_id)
-    if not user:
-        return jsonify({'status': 'error', 'message': '使用者不存在'}), 404
-    
-    reviews = load_json(REVIEWS_FILE)
-    
-    if concert_id not in reviews:
-        reviews[concert_id] = {}
-    
-    review_id = str(uuid.uuid4())
-    reviews[concert_id][review_id] = {
-        'user_id': user_id,
-        'username': user['username'],
-        'rating': rating,
-        'comment': comment,
-        'created_at': datetime.now().isoformat()
-    }
-    
-    save_json(REVIEWS_FILE, reviews)
-    
-    return jsonify({
-        'status': 'success',
-        'message': '評價已新增',
-        'review': {
-            'id': review_id,
-            **reviews[concert_id][review_id]
-        }
-    }), 201
-
-@app.route('/api/reviews/<concert_id>/<review_id>', methods=['DELETE'])
-@require_login
-def delete_review(concert_id, review_id):
-    """刪除評價（僅限評論者本人）"""
-    reviews = load_json(REVIEWS_FILE)
-    
-    if concert_id not in reviews or review_id not in reviews[concert_id]:
-        return jsonify({'status': 'error', 'message': '評價不存在'}), 404
-    
-    review = reviews[concert_id][review_id]
-    if review['user_id'] != session['user_id']:
-        return jsonify({'status': 'error', 'message': '只能刪除自己的評價'}), 403
-    
-    del reviews[concert_id][review_id]
-    save_json(REVIEWS_FILE, reviews)
-    
-    return jsonify({
-        'status': 'success',
-        'message': '評價已刪除'
     }), 200
 
 # =====================
