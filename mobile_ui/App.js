@@ -169,13 +169,21 @@ const LoginScreen = ({ onLoginSuccess, language, onLanguageChange }) => {
     setIsLoading(true);
     try {
       console.log("Login attempt - Email:", email, "API URL:", API_BASE_URL);
+      
+      // 添加 10 秒超時
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
+      
       console.log("Login response status:", response.status);
       const data = await response.json();
       console.log("Login response data:", data);
@@ -190,10 +198,17 @@ const LoginScreen = ({ onLoginSuccess, language, onLanguageChange }) => {
       }
     } catch (error) {
       console.log("Login error:", error.message || error);
-      Alert.alert(
-        getTranslation("error", language), 
-        `Error: ${error.message || "無法連接到伺服器"}`
-      );
+      if (error.name === 'AbortError') {
+        Alert.alert(
+          getTranslation("error", language), 
+          "連接超時，請檢查網路並重試"
+        );
+      } else {
+        Alert.alert(
+          getTranslation("error", language), 
+          `錯誤: ${error.message || "無法連接到伺服器"}`
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -216,16 +231,23 @@ const LoginScreen = ({ onLoginSuccess, language, onLanguageChange }) => {
 
     setIsLoading(true);
     try {
+      // 添加 10 秒超時
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
+        signal: controller.signal,
         body: JSON.stringify({
           username: registerData.username,
           email: registerData.email,
           password: registerData.password,
         }),
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
       if (data.status === "success") {
@@ -243,7 +265,11 @@ const LoginScreen = ({ onLoginSuccess, language, onLanguageChange }) => {
         Alert.alert("註冊失敗", data.message || "請重試");
       }
     } catch (error) {
-      Alert.alert(getTranslation("error", language), getTranslation("serverError", language));
+      if (error.name === 'AbortError') {
+        Alert.alert(getTranslation("error", language), "連接超時，請檢查網路");
+      } else {
+        Alert.alert(getTranslation("error", language), error.message || getTranslation("serverError", language));
+      }
     } finally {
       setIsLoading(false);
     }
