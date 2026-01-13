@@ -14,13 +14,141 @@ import {
   Image,
 } from "react-native";
 
-// API 基礎 URL：請改為本機區網 IP，供真機連線
+// API 基礎 URL：真機使用區網 IP
 const API_BASE_URL = "http://192.168.0.24:5000/api";
+
+// ==================
+// 多語言翻譯
+// ==================
+const translations = {
+  "zh-TW": {
+    loginTitle: "演唱會通知助手",
+    loginSubtitle: "登入你的帳戶",
+    registerTitle: "建立新帳戶",
+    email: "信箱",
+    password: "密碼",
+    username: "使用者名稱",
+    confirmPassword: "確認密碼",
+    login: "登入",
+    register: "註冊",
+    logout: "登出",
+    noAccount: "還沒有帳戶？點擊註冊",
+    haveAccount: "已有帳戶？點擊登入",
+    welcome: "歡迎",
+    discoverNext: "發現你的下一場演出",
+    allConcerts: "所有演唱會",
+    myFollows: "我的關注",
+    search: "搜尋演唱會...",
+    noConcerts: "暫無演唱會資料",
+    noResults: "沒有符合的結果",
+    concertDetails: "演唱會詳情",
+    time: "時間",
+    location: "地點",
+    source: "來源",
+    ticketLink: "購票連結",
+    follow: "關注",
+    unfollow: "取消關注",
+    reminder: "設置提醒",
+    removeReminder: "移除提醒",
+    reviews: "評價",
+    addReview: "新增評價",
+    rating: "評分",
+    comment: "評論",
+    submit: "提交",
+    cancel: "取消",
+    deleteConfirm: "確定要登出嗎?",
+    confirmLogout: "登出",
+    error: "錯誤",
+    success: "成功",
+    serverError: "無法連接到伺服器",
+    daysRemaining: "天",
+    hoursRemaining: "小時",
+  },
+  "en-US": {
+    loginTitle: "Concert Notification Helper",
+    loginSubtitle: "Sign in to your account",
+    registerTitle: "Create New Account",
+    email: "Email",
+    password: "Password",
+    username: "Username",
+    confirmPassword: "Confirm Password",
+    login: "Login",
+    register: "Register",
+    logout: "Logout",
+    noAccount: "Don't have an account? Click to register",
+    haveAccount: "Have an account? Click to login",
+    welcome: "Welcome",
+    discoverNext: "Discover your next concert",
+    allConcerts: "All Concerts",
+    myFollows: "My Follows",
+    search: "Search concerts...",
+    noConcerts: "No concerts available",
+    noResults: "No matching results",
+    concertDetails: "Concert Details",
+    time: "Time",
+    location: "Location",
+    source: "Source",
+    ticketLink: "Ticket Link",
+    follow: "Follow",
+    unfollow: "Unfollow",
+    reminder: "Set Reminder",
+    removeReminder: "Remove Reminder",
+    reviews: "Reviews",
+    addReview: "Add Review",
+    rating: "Rating",
+    comment: "Comment",
+    submit: "Submit",
+    cancel: "Cancel",
+    deleteConfirm: "Are you sure you want to logout?",
+    confirmLogout: "Logout",
+    error: "Error",
+    success: "Success",
+    serverError: "Unable to connect to server",
+    daysRemaining: "days",
+    hoursRemaining: "hours",
+  },
+};
+
+const getTranslation = (key, language) => {
+  return translations[language]?.[key] || translations["zh-TW"][key] || key;
+};
+
+// ==================
+// 倒計時函數
+// ==================
+const calculateCountdown = (concertDate) => {
+  if (!concertDate) return null;
+  
+  try {
+    // 處理各種日期格式：2026/01/16 或 2026-01-16
+    const dateStr = concertDate.replace(/\//g, '-');
+    const now = new Date();
+    const concert = new Date(dateStr);
+    
+    // 檢查日期是否有效
+    if (isNaN(concert.getTime())) {
+      console.warn('Invalid date:', concertDate);
+      return null;
+    }
+    
+    const diff = concert - now;
+    
+    if (diff <= 0) return { status: "past" };
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    return { days, hours, status: "upcoming" };
+  } catch (error) {
+    console.error('Error calculating countdown:', error, concertDate);
+    return null;
+  }
+};
 
 // ==================
 // 登入屏幕
 // ==================
-const LoginScreen = ({ onLoginSuccess }) => {
+const LoginScreen = ({ onLoginSuccess, language, onLanguageChange }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,26 +162,38 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("錯誤", "請輸入信箱和密碼");
+      Alert.alert(getTranslation("error", language), "請輸入信箱和密碼");
       return;
     }
 
     setIsLoading(true);
     try {
+      console.log("Login attempt - Email:", email, "API URL:", API_BASE_URL);
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
+      console.log("Login response status:", response.status);
       const data = await response.json();
+      console.log("Login response data:", data);
+      
       if (data.status === "success") {
         onLoginSuccess(data.user);
       } else {
-        Alert.alert("登入失敗", data.message || "請檢查信箱和密碼");
+        Alert.alert(
+          getTranslation("error", language),
+          data.message || "請檢查信箱和密碼"
+        );
       }
     } catch (error) {
-      Alert.alert("錯誤", "無法連接到伺服器");
+      console.log("Login error:", error.message || error);
+      Alert.alert(
+        getTranslation("error", language), 
+        `Error: ${error.message || "無法連接到伺服器"}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -65,12 +205,12 @@ const LoginScreen = ({ onLoginSuccess }) => {
       !registerData.email ||
       !registerData.password
     ) {
-      Alert.alert("錯誤", "請填寫所有欄位");
+      Alert.alert(getTranslation("error", language), "請填寫所有欄位");
       return;
     }
 
     if (registerData.password !== registerData.confirmPassword) {
-      Alert.alert("錯誤", "密碼不一致");
+      Alert.alert(getTranslation("error", language), "密碼不一致");
       return;
     }
 
@@ -79,6 +219,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({
           username: registerData.username,
           email: registerData.email,
@@ -88,7 +229,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
       const data = await response.json();
       if (data.status === "success") {
-        Alert.alert("成功", "註冊成功，請登入");
+        Alert.alert(getTranslation("success", language), "註冊成功，請登入");
         setShowRegister(false);
         setEmail(registerData.email);
         setPassword("");
@@ -102,7 +243,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
         Alert.alert("註冊失敗", data.message || "請重試");
       }
     } catch (error) {
-      Alert.alert("錯誤", "無法連接到伺服器");
+      Alert.alert(getTranslation("error", language), getTranslation("serverError", language));
     } finally {
       setIsLoading(false);
     }
@@ -111,12 +252,26 @@ const LoginScreen = ({ onLoginSuccess }) => {
   if (showRegister) {
     return (
       <SafeAreaView style={styles.safe}>
+        <View style={styles.languageToggle}>
+          <TouchableOpacity onPress={() => onLanguageChange("zh-TW")}>
+            <Text style={[styles.langButton, language === "zh-TW" && styles.langButtonActive]}>
+              繁體中文
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onLanguageChange("en-US")}>
+            <Text style={[styles.langButton, language === "en-US" && styles.langButtonActive]}>
+              English
+            </Text>
+          </TouchableOpacity>
+        </View>
         <ScrollView contentContainerStyle={styles.authContainer}>
-          <Text style={styles.authTitle}>建立新帳戶</Text>
+          <Text style={styles.authTitle}>
+            {getTranslation("registerTitle", language)}
+          </Text>
 
           <TextInput
             style={styles.input}
-            placeholder="使用者名稱"
+            placeholder={getTranslation("username", language)}
             value={registerData.username}
             onChangeText={(text) =>
               setRegisterData({ ...registerData, username: text })
@@ -125,7 +280,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
           />
           <TextInput
             style={styles.input}
-            placeholder="信箱"
+            placeholder={getTranslation("email", language)}
             value={registerData.email}
             onChangeText={(text) =>
               setRegisterData({ ...registerData, email: text })
@@ -135,7 +290,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
           />
           <TextInput
             style={styles.input}
-            placeholder="密碼 (至少 6 個字元)"
+            placeholder={getTranslation("password", language) + " (至少 6 個字元)"}
             value={registerData.password}
             onChangeText={(text) =>
               setRegisterData({ ...registerData, password: text })
@@ -145,7 +300,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
           />
           <TextInput
             style={styles.input}
-            placeholder="確認密碼"
+            placeholder={getTranslation("confirmPassword", language)}
             value={registerData.confirmPassword}
             onChangeText={(text) =>
               setRegisterData({ ...registerData, confirmPassword: text })
@@ -162,12 +317,16 @@ const LoginScreen = ({ onLoginSuccess }) => {
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>註冊</Text>
+              <Text style={styles.buttonText}>
+                {getTranslation("register", language)}
+              </Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => setShowRegister(false)}>
-            <Text style={styles.link}>已有帳戶？點擊登入</Text>
+            <Text style={styles.link}>
+              {getTranslation("haveAccount", language)}
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
@@ -176,13 +335,29 @@ const LoginScreen = ({ onLoginSuccess }) => {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.languageToggle}>
+        <TouchableOpacity onPress={() => onLanguageChange("zh-TW")}>
+          <Text style={[styles.langButton, language === "zh-TW" && styles.langButtonActive]}>
+            繁體中文
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => onLanguageChange("en-US")}>
+          <Text style={[styles.langButton, language === "en-US" && styles.langButtonActive]}>
+            English
+          </Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.authContainer}>
-        <Text style={styles.authTitle}>演唱會通知助手</Text>
-        <Text style={styles.subtitle}>登入你的帳戶</Text>
+        <Text style={styles.authTitle}>
+          {getTranslation("loginTitle", language)}
+        </Text>
+        <Text style={styles.subtitle}>
+          {getTranslation("loginSubtitle", language)}
+        </Text>
 
         <TextInput
           style={styles.input}
-          placeholder="信箱"
+          placeholder={getTranslation("email", language)}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -190,7 +365,7 @@ const LoginScreen = ({ onLoginSuccess }) => {
         />
         <TextInput
           style={styles.input}
-          placeholder="密碼"
+          placeholder={getTranslation("password", language)}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -205,12 +380,16 @@ const LoginScreen = ({ onLoginSuccess }) => {
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>登入</Text>
+            <Text style={styles.buttonText}>
+              {getTranslation("login", language)}
+            </Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setShowRegister(true)}>
-          <Text style={styles.link}>還沒有帳戶？點擊註冊</Text>
+          <Text style={styles.link}>
+            {getTranslation("noAccount", language)}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -220,14 +399,18 @@ const LoginScreen = ({ onLoginSuccess }) => {
 // ==================
 // 演唱會列表屏幕
 // ==================
-const ConcertListScreen = ({ user, onLogout }) => {
+const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
   const [concerts, setConcerts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedConcert, setSelectedConcert] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [userFollows, setUserFollows] = useState([]);
   const [userReminders, setUserReminders] = useState({});
-  const [currentTab, setCurrentTab] = useState("all"); // all, follows
+  const [currentTab, setCurrentTab] = useState("all");
+  const [reviews, setReviews] = useState([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: "" });
+  const [avgRating, setAvgRating] = useState(0);
 
   useEffect(() => {
     loadConcerts();
@@ -238,14 +421,13 @@ const ConcertListScreen = ({ user, onLogout }) => {
   const loadConcerts = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/concerts`);
+      const response = await fetch(`${API_BASE_URL}/concerts`, { credentials: 'include' });
       const data = await response.json();
       if (data.status === "success") {
         setConcerts(data.concerts || []);
       }
     } catch (error) {
       console.error("載入演唱會失敗:", error);
-      Alert.alert("錯誤", "無法載入演唱會列表");
     } finally {
       setIsLoading(false);
     }
@@ -253,7 +435,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
 
   const loadFollows = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/follows`);
+      const response = await fetch(`${API_BASE_URL}/follows`, { credentials: 'include' });
       const data = await response.json();
       if (data.status === "success") {
         setUserFollows(data.concerts.map((c) => c.id) || []);
@@ -265,7 +447,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
 
   const loadReminders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/reminders`);
+      const response = await fetch(`${API_BASE_URL}/reminders`, { credentials: 'include' });
       const data = await response.json();
       if (data.status === "success") {
         setUserReminders(data.reminders || {});
@@ -275,15 +457,29 @@ const ConcertListScreen = ({ user, onLogout }) => {
     }
   };
 
+  const loadReviews = async (concertId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reviews/${concertId}`, { credentials: 'include' });
+      const data = await response.json();
+      if (data.status === "success") {
+        setReviews(data.reviews || []);
+        setAvgRating(data.avg_rating || 0);
+      }
+    } catch (error) {
+      console.error("載入評價失敗:", error);
+    }
+  };
+
   const toggleFollow = async (concertId) => {
     const isFollowing = userFollows.includes(concertId);
-    const endpoint = isFollowing
-      ? `${API_BASE_URL}/follows/${concertId}`
-      : `${API_BASE_URL}/follows/${concertId}`;
     const method = isFollowing ? "DELETE" : "POST";
 
     try {
-      const response = await fetch(endpoint, { method });
+      const response = await fetch(`${API_BASE_URL}/follows/${concertId}`, {
+        method: method,
+        credentials: 'include',
+        headers: { 'X-User-Id': user.user_id },
+      });
       const data = await response.json();
 
       if (data.status === "success") {
@@ -292,10 +488,9 @@ const ConcertListScreen = ({ user, onLogout }) => {
         } else {
           setUserFollows([...userFollows, concertId]);
         }
-        Alert.alert("成功", isFollowing ? "已取消關注" : "已關注");
       }
     } catch (error) {
-      Alert.alert("錯誤", "操作失敗");
+      Alert.alert(getTranslation("error", language), "操作失敗");
     }
   };
 
@@ -306,25 +501,71 @@ const ConcertListScreen = ({ user, onLogout }) => {
       if (hasReminder) {
         await fetch(`${API_BASE_URL}/reminders/${concertId}`, {
           method: "DELETE",
+          credentials: 'include',
+          headers: { 'X-User-Id': user.user_id },
         });
         const newReminders = { ...userReminders };
         delete newReminders[concertId];
         setUserReminders(newReminders);
-        Alert.alert("成功", "已刪除提醒");
       } else {
         await fetch(`${API_BASE_URL}/reminders/${concertId}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            'X-User-Id': user.user_id 
+          },
+          credentials: 'include',
           body: JSON.stringify({ type: "on_sale" }),
         });
         setUserReminders({
           ...userReminders,
           [concertId]: { type: "on_sale", enabled: true },
         });
-        Alert.alert("成功", "已設定提醒");
       }
     } catch (error) {
-      Alert.alert("錯誤", "操作失敗");
+      Alert.alert(getTranslation("error", language), "操作失敗");
+    }
+  };
+
+  const submitReview = async () => {
+    if (!reviewData.comment.trim()) {
+      Alert.alert(getTranslation("error", language), "請輸入評論");
+      return;
+    }
+
+    try {
+      console.log('Submitting review for concert:', selectedConcert.id);
+      const response = await fetch(
+        `${API_BASE_URL}/reviews/${selectedConcert.id}`,
+        {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            'X-User-Id': user.user_id 
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            rating: reviewData.rating,
+            comment: reviewData.comment,
+          }),
+        }
+      );
+
+      console.log('Review response status:', response.status);
+      const data = await response.json();
+      console.log('Review response data:', data);
+      
+      if (data.status === "success") {
+        Alert.alert(getTranslation("success", language), "評價已提交");
+        setReviewData({ rating: 5, comment: "" });
+        setShowReviewModal(false);
+        loadReviews(selectedConcert.id);
+      } else {
+        Alert.alert(getTranslation("error", language), data.message || "評價提交失敗");
+      }
+    } catch (error) {
+      console.error('提交評價錯誤:', error);
+      Alert.alert(getTranslation("error", language), `網路錯誤: ${error.message}`);
     }
   };
 
@@ -342,11 +583,16 @@ const ConcertListScreen = ({ user, onLogout }) => {
   const renderConcertItem = ({ item }) => {
     const isFollowed = userFollows.includes(item.id);
     const hasReminder = userReminders[item.id];
+    const countdown = calculateCountdown(item.演出時間);
 
     return (
       <TouchableOpacity
         style={styles.concertCard}
-        onPress={() => setSelectedConcert(item)}
+        onPress={() => {
+          setSelectedConcert(item);
+          loadReviews(item.id);
+          setShowReviewModal(false);
+        }}
       >
         <View style={styles.concertContent}>
           <Text style={styles.concertArtist} numberOfLines={2}>
@@ -354,6 +600,13 @@ const ConcertListScreen = ({ user, onLogout }) => {
           </Text>
           <Text style={styles.concertInfo}>📅 {item.演出時間}</Text>
           <Text style={styles.concertInfo}>📍 {item.演出地點}</Text>
+
+          {countdown && countdown.status === "upcoming" && (
+            <Text style={styles.countdown}>
+              ⏱️ {countdown.days}天 {countdown.hours}小時
+            </Text>
+          )}
+
           <Text style={styles.concertSource}>{item.來源網站}</Text>
         </View>
 
@@ -383,20 +636,45 @@ const ConcertListScreen = ({ user, onLogout }) => {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>歡迎, {user.username}! 👋</Text>
-          <Text style={styles.subGreeting}>發現你的下一場演出</Text>
+          <Text style={styles.greeting}>
+            {getTranslation("welcome", language)}, {user.username}! 👋
+          </Text>
+          <Text style={styles.subGreeting}>
+            {getTranslation("discoverNext", language)}
+          </Text>
         </View>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={() => {
-            Alert.alert("確認", "確定要登出嗎?", [
-              { text: "取消" },
-              { text: "登出", onPress: onLogout },
-            ]);
-          }}
-        >
-          <Text style={styles.logoutText}>登出</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.langToggle}
+            onPress={() =>
+              onLanguageChange(language === "zh-TW" ? "en-US" : "zh-TW")
+            }
+          >
+            <Text style={styles.langToggleText}>
+              {language === "zh-TW" ? "EN" : "繁"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => {
+              Alert.alert(
+                getTranslation("deleteConfirm", language),
+                "",
+                [
+                  { text: getTranslation("cancel", language) },
+                  {
+                    text: getTranslation("confirmLogout", language),
+                    onPress: onLogout,
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={styles.logoutText}>
+              {getTranslation("logout", language)}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabContainer}>
@@ -410,7 +688,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
               currentTab === "all" && styles.activeTabText,
             ]}
           >
-            所有演唱會 ({concerts.length})
+            {getTranslation("allConcerts", language)} ({concerts.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -423,7 +701,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
               currentTab === "follows" && styles.activeTabText,
             ]}
           >
-            我的關注 ({userFollows.length})
+            {getTranslation("myFollows", language)} ({userFollows.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -431,7 +709,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="搜尋演唱會..."
+          placeholder={getTranslation("search", language)}
           placeholderTextColor="#999"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -445,7 +723,9 @@ const ConcertListScreen = ({ user, onLogout }) => {
       ) : displayConcerts.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
-            {concerts.length === 0 ? "暫無演唱會資料" : "沒有符合的結果"}
+            {concerts.length === 0
+              ? getTranslation("noConcerts", language)
+              : getTranslation("noResults", language)}
           </Text>
         </View>
       ) : (
@@ -457,7 +737,6 @@ const ConcertListScreen = ({ user, onLogout }) => {
         />
       )}
 
-      {/* 詳細資訊 Modal */}
       {selectedConcert && (
         <Modal
           visible={!!selectedConcert}
@@ -470,7 +749,9 @@ const ConcertListScreen = ({ user, onLogout }) => {
               <TouchableOpacity onPress={() => setSelectedConcert(null)}>
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>演唱會詳情</Text>
+              <Text style={styles.modalTitle}>
+                {getTranslation("concertDetails", language)}
+              </Text>
               <View style={{ width: 30 }} />
             </View>
 
@@ -479,30 +760,77 @@ const ConcertListScreen = ({ user, onLogout }) => {
                 {selectedConcert.演出藝人}
               </Text>
 
+              {calculateCountdown(selectedConcert.演出時間) &&
+                calculateCountdown(selectedConcert.演出時間).status === "upcoming" && (
+                  <View style={styles.countdownBox}>
+                    <Text style={styles.countdownText}>
+                      ⏱️ {calculateCountdown(selectedConcert.演出時間).days}
+                      {getTranslation("daysRemaining", language)} {calculateCountdown(selectedConcert.演出時間).hours}
+                      {getTranslation("hoursRemaining", language)}
+                    </Text>
+                  </View>
+                )}
+
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>📅 時間</Text>
+                <Text style={styles.detailLabel}>📅 {getTranslation("time", language)}</Text>
                 <Text style={styles.detailValue}>
                   {selectedConcert.演出時間}
                 </Text>
               </View>
 
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>📍 地點</Text>
+                <Text style={styles.detailLabel}>📍 {getTranslation("location", language)}</Text>
                 <Text style={styles.detailValue}>
                   {selectedConcert.演出地點}
                 </Text>
               </View>
 
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>🌐 來源</Text>
+                <Text style={styles.detailLabel}>🌐 {getTranslation("source", language)}</Text>
                 <Text style={styles.detailValue}>{selectedConcert.來源網站}</Text>
               </View>
 
               <View style={styles.detailSection}>
-                <Text style={styles.detailLabel}>🔗 購票連結</Text>
+                <Text style={styles.detailLabel}>🔗 {getTranslation("ticketLink", language)}</Text>
                 <Text style={[styles.detailValue, styles.link]}>
                   {selectedConcert.網址}
                 </Text>
+              </View>
+
+              <View style={styles.reviewSection}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewTitle}>
+                    {getTranslation("reviews", language)}
+                  </Text>
+                  <Text style={styles.avgRating}>
+                    ⭐ {avgRating.toFixed(1)}
+                  </Text>
+                </View>
+
+                {reviews.length > 0 ? (
+                  reviews.slice(0, 3).map((review) => (
+                    <View key={review.id} style={styles.reviewItem}>
+                      <View style={styles.reviewMeta}>
+                        <Text style={styles.reviewUser}>{review.username}</Text>
+                        <Text style={styles.reviewRating}>
+                          {"⭐".repeat(review.rating)}
+                        </Text>
+                      </View>
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noReviewText}>暫無評價</Text>
+                )}
+
+                <TouchableOpacity
+                  style={styles.addReviewButton}
+                  onPress={() => setShowReviewModal(true)}
+                >
+                  <Text style={styles.addReviewButtonText}>
+                    {getTranslation("addReview", language)}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.modalActions}>
@@ -512,8 +840,8 @@ const ConcertListScreen = ({ user, onLogout }) => {
                 >
                   <Text style={styles.largeButtonText}>
                     {userFollows.includes(selectedConcert.id)
-                      ? "取消關注 ★"
-                      : "關注 ☆"}
+                      ? getTranslation("unfollow", language) + " ★"
+                      : getTranslation("follow", language) + " ☆"}
                   </Text>
                 </TouchableOpacity>
 
@@ -523,8 +851,8 @@ const ConcertListScreen = ({ user, onLogout }) => {
                 >
                   <Text style={styles.largeButtonText}>
                     {userReminders[selectedConcert.id]
-                      ? "移除提醒 🔔"
-                      : "設置提醒 🔕"}
+                      ? getTranslation("removeReminder", language) + " 🔔"
+                      : getTranslation("reminder", language) + " 🔕"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -532,6 +860,86 @@ const ConcertListScreen = ({ user, onLogout }) => {
           </SafeAreaView>
         </Modal>
       )}
+
+      <Modal
+        visible={showReviewModal && !!selectedConcert}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowReviewModal(false)}>
+              <Text style={styles.closeButton}>✕</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {getTranslation("addReview", language)}
+            </Text>
+            <View style={{ width: 30 }} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.detailTitle}>
+              {selectedConcert?.演出藝人}
+            </Text>
+
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingLabel}>
+                {getTranslation("rating", language)}
+              </Text>
+              <View style={styles.ratingButtons}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    style={[
+                      styles.ratingButton,
+                      reviewData.rating >= star &&
+                        styles.ratingButtonActive,
+                    ]}
+                    onPress={() =>
+                      setReviewData({ ...reviewData, rating: star })
+                    }
+                  >
+                    <Text style={styles.ratingButtonText}>⭐</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.commentContainer}>
+              <Text style={styles.commentLabel}>
+                {getTranslation("comment", language)}
+              </Text>
+              <TextInput
+                style={styles.commentInput}
+                placeholder={getTranslation("comment", language)}
+                placeholderTextColor="#999"
+                value={reviewData.comment}
+                onChangeText={(text) =>
+                  setReviewData({
+                    ...reviewData,
+                    comment: text.slice(0, 500),
+                  })
+                }
+                multiline
+                numberOfLines={5}
+              />
+              <Text style={styles.charCount}>
+                {reviewData.comment.length}/500
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={submitReview}
+            >
+              <Text style={styles.submitButtonText}>
+                {getTranslation("submit", language)}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -542,6 +950,7 @@ const ConcertListScreen = ({ user, onLogout }) => {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const [language, setLanguage] = useState("zh-TW");
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
@@ -553,10 +962,23 @@ export default function App() {
     setUser(null);
   };
 
+  const handleLanguageChange = (newLanguage) => {
+    setLanguage(newLanguage);
+  };
+
   return isLoggedIn && user ? (
-    <ConcertListScreen user={user} onLogout={handleLogout} />
+    <ConcertListScreen
+      user={user}
+      onLogout={handleLogout}
+      language={language}
+      onLanguageChange={handleLanguageChange}
+    />
   ) : (
-    <LoginScreen onLoginSuccess={handleLoginSuccess} />
+    <LoginScreen
+      onLoginSuccess={handleLoginSuccess}
+      language={language}
+      onLanguageChange={handleLanguageChange}
+    />
   );
 }
 
@@ -569,7 +991,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#0e1629",
   },
 
-  // 認證屏幕
   authContainer: {
     padding: 20,
     justifyContent: "center",
@@ -606,9 +1027,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
   buttonText: {
     color: "#fff",
     fontSize: 16,
@@ -621,7 +1039,6 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
-  // 頭部
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -630,6 +1047,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#24407a",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
   },
   greeting: {
     fontSize: 18,
@@ -652,8 +1074,37 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 13,
   },
+  langToggle: {
+    backgroundColor: "#24407a",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  langToggleText: {
+    color: "#f5f7ff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  languageToggle: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  langButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#24407a",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  langButtonActive: {
+    backgroundColor: "#007AFF",
+    borderColor: "#0056cc",
+  },
 
-  // 標籤頁
   tabContainer: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -679,7 +1130,6 @@ const styles = StyleSheet.create({
     color: "#007AFF",
   },
 
-  // 搜尋
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -695,7 +1145,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // 演唱會卡片
   listContent: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -730,6 +1179,12 @@ const styles = StyleSheet.create({
     color: "#8fa3c7",
     marginTop: 4,
   },
+  countdown: {
+    fontSize: 12,
+    color: "#ff6b6b",
+    fontWeight: "700",
+    marginTop: 4,
+  },
   actionButtons: {
     flexDirection: "row",
     gap: 8,
@@ -752,7 +1207,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 
-  // Modal
   modalContainer: {
     flex: 1,
     backgroundColor: "#0e1629",
@@ -802,9 +1256,158 @@ const styles = StyleSheet.create({
     color: "#e7edff",
     lineHeight: 20,
   },
-  url: {
-    color: "#5ba3ff",
+  countdownBox: {
+    backgroundColor: "#ff6b6b20",
+    borderLeftWidth: 3,
+    borderLeftColor: "#ff6b6b",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 20,
+    borderRadius: 6,
   },
+  countdownText: {
+    fontSize: 14,
+    color: "#ff6b6b",
+    fontWeight: "700",
+  },
+
+  reviewSection: {
+    marginTop: 20,
+    marginBottom: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#24407a",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  reviewTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f5f7ff",
+  },
+  avgRating: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fbbf24",
+  },
+  reviewItem: {
+    backgroundColor: "#24407a40",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+  },
+  reviewMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  reviewUser: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#c7d4ff",
+  },
+  reviewRating: {
+    fontSize: 13,
+  },
+  reviewComment: {
+    fontSize: 13,
+    color: "#e7edff",
+    lineHeight: 18,
+  },
+  noReviewText: {
+    fontSize: 13,
+    color: "#8fa3c7",
+    fontStyle: "italic",
+  },
+  addReviewButton: {
+    backgroundColor: "#10b981",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  addReviewButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  ratingContainer: {
+    marginBottom: 20,
+  },
+  ratingLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#8fa3c7",
+    marginBottom: 10,
+  },
+  ratingButtons: {
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+  },
+  ratingButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#24407a",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  ratingButtonActive: {
+    backgroundColor: "#fbbf24",
+    borderColor: "#f59e0b",
+  },
+  ratingButtonText: {
+    fontSize: 24,
+  },
+
+  commentContainer: {
+    marginBottom: 20,
+  },
+  commentLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#8fa3c7",
+    marginBottom: 10,
+  },
+  commentInput: {
+    backgroundColor: "#162b54",
+    borderColor: "#24407a",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    color: "#f5f7ff",
+    fontSize: 14,
+    textAlignVertical: "top",
+  },
+  charCount: {
+    fontSize: 12,
+    color: "#8fa3c7",
+    textAlign: "right",
+    marginTop: 6,
+  },
+  submitButton: {
+    backgroundColor: "#007AFF",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
   modalActions: {
     marginTop: 20,
     gap: 12,
@@ -821,7 +1424,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // 空白狀態
   centerContainer: {
     flex: 1,
     justifyContent: "center",
