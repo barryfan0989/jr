@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 // API 基礎 URL：真機使用區網 IP
-const API_BASE_URL = "http://192.168.0.24:5000/api";
+const API_BASE_URL = "http://192.168.0.175:5000/api";
 
 // ==================
 // 多語言翻譯
