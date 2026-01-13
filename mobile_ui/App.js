@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 // API 基礎 URL：請改為本機區網 IP，供真機連線
-const API_BASE_URL = "http://192.168.0.175:5000/api";
+const API_BASE_URL = "http://192.168.0.24:5000/api";
 
 // ==================
 // 登入屏幕
