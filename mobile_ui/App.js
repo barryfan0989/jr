@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 // API 基礎 URL：真機使用區網 IP
-const API_BASE_URL = "http://192.168.0.175:5000/api";
+const API_BASE_URL = "http://192.168.0.24:5000/api";
 
 // ==================
 // 多語言翻譯
@@ -38,6 +38,7 @@ const translations = {
     discoverNext: "發現你的下一場演出",
     allConcerts: "所有演唱會",
     myFollows: "我的關注",
+    byArtist: "按藝人分類",
     search: "搜尋演唱會...",
     noConcerts: "暫無演唱會資料",
     noResults: "沒有符合的結果",
@@ -76,6 +77,7 @@ const translations = {
     discoverNext: "Discover your next concert",
     allConcerts: "All Concerts",
     myFollows: "My Follows",
+    byArtist: "By Artist",
     search: "Search concerts...",
     noConcerts: "No concerts available",
     noResults: "No matching results",
@@ -423,6 +425,11 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
   const [userFollows, setUserFollows] = useState([]);
   const [userReminders, setUserReminders] = useState({});
   const [currentTab, setCurrentTab] = useState("all");
+  const [artistConcerts, setArtistConcerts] = useState([]);
+  const [selectedArtist, setSelectedArtist] = useState(null);
+  const [aiSearchQuery, setAiSearchQuery] = useState("");
+  const [aiSearchResults, setAiSearchResults] = useState([]);
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
 
   useEffect(() => {
     loadConcerts();
@@ -433,13 +440,39 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
   const loadConcerts = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/concerts`, { credentials: 'include' });
+      const response = await fetch(`${API_BASE_URL}/concerts`, {
+        credentials: 'include'
+      });
       const data = await response.json();
       if (data.status === "success") {
         setConcerts(data.concerts || []);
       }
     } catch (error) {
       console.error("載入演唱會失敗:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchWebsiteData = async () => {
+    Alert.alert("開始爬蟲", "正在從真實網站抓取演唱會資料...", [
+      { text: "取消" }
+    ]);
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/concerts/generate-all`, {
+        method: "POST",
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.status === "success") {
+        Alert.alert("成功", `已抓取 ${data.count} 筆真實演唱會資訊`);
+        loadConcerts();
+      } else {
+        Alert.alert("錯誤", data.message || "爬蟲失敗");
+      }
+    } catch (error) {
+      Alert.alert("錯誤", "連接伺服器失敗");
     } finally {
       setIsLoading(false);
     }
@@ -466,6 +499,52 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
       }
     } catch (error) {
       console.error("載入提醒失敗:", error);
+    }
+  };
+
+  const loadArtistConcerts = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/concerts/by-artist/list`, { credentials: 'include' });
+      const data = await response.json();
+      if (data.status === "success") {
+        setArtistConcerts(data.artist_list || []);
+      }
+    } catch (error) {
+      console.error("載入藝人分類失敗:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const performAiSearch = async () => {
+    if (!aiSearchQuery.trim()) {
+      Alert.alert("提醒", "請輸入搜索條件");
+      return;
+    }
+
+    setAiSearchLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/concerts/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: aiSearchQuery,
+          limit: 10
+        }),
+        credentials: 'include'
+      });
+      const data = await response.json();
+      if (data.status === "success") {
+        setAiSearchResults(data.concerts || []);
+      } else {
+        Alert.alert("錯誤", data.message || "搜索失敗");
+      }
+    } catch (error) {
+      console.error("AI 搜索失敗:", error);
+      Alert.alert("錯誤", "連接伺服器失敗");
+    } finally {
+      setAiSearchLoading(false);
     }
   };
 
@@ -551,10 +630,14 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
       >
         <View style={styles.concertContent}>
           <Text style={styles.concertArtist} numberOfLines={2}>
-            {item.演出藝人}
+            {item.演出藝人 || '未知演出'}
           </Text>
-          <Text style={styles.concertInfo}>📅 {item.演出時間}</Text>
-          <Text style={styles.concertInfo}>📍 {item.演出地點}</Text>
+          <Text style={styles.concertInfo}>📅 {item.演出時間 || '待定'}</Text>
+          <Text style={styles.concertInfo}>📍 {item.演出地點 || '未公布'}</Text>
+          
+          {item.票價 && (
+            <Text style={styles.concertPrice}>💰 {item.票價}</Text>
+          )}
 
           {countdown && countdown.status === "upcoming" && (
             <Text style={styles.countdown}>
@@ -562,7 +645,11 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
             </Text>
           )}
 
-          <Text style={styles.concertSource}>{item.來源網站}</Text>
+          <View style={styles.sourceContainer}>
+            <Text style={styles.concertSource}>
+              🌐 {item.來源網站 || '未知來源'}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.actionButtons}>
@@ -599,6 +686,15 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
           </Text>
         </View>
         <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.crawlButton}
+              onPress={fetchWebsiteData}
+              disabled={isLoading}
+            >
+              <Text style={styles.crawlButtonText}>
+                {isLoading ? "抓取中..." : "🕷️ 抓取"}
+              </Text>
+            </TouchableOpacity>
           <TouchableOpacity
             style={styles.langToggle}
             onPress={() =>
@@ -659,22 +755,125 @@ const ConcertListScreen = ({ user, onLogout, language, onLanguageChange }) => {
             {getTranslation("myFollows", language)} ({userFollows.length})
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, currentTab === "artist" && styles.activeTab]}
+          onPress={() => {
+            setCurrentTab("artist");
+            loadArtistConcerts();
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              currentTab === "artist" && styles.activeTabText,
+            ]}
+          >
+            {getTranslation("byArtist", language)}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, currentTab === "aiSearch" && styles.activeTab]}
+          onPress={() => setCurrentTab("aiSearch")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              currentTab === "aiSearch" && styles.activeTabText,
+            ]}
+          >
+            AI 搜索
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder={getTranslation("search", language)}
+          placeholder={currentTab === "aiSearch" ? "搜索演唱會（藝人、日期、地點等）" : getTranslation("search", language)}
           placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          value={currentTab === "aiSearch" ? aiSearchQuery : searchQuery}
+          onChangeText={currentTab === "aiSearch" ? setAiSearchQuery : setSearchQuery}
+          onSubmitEditing={currentTab === "aiSearch" ? performAiSearch : undefined}
         />
+        {currentTab === "aiSearch" && (
+          <TouchableOpacity 
+            style={styles.searchButton}
+            onPress={performAiSearch}
+          >
+            <Text style={styles.searchButtonText}>🔍</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
+      ) : currentTab === "aiSearch" ? (
+        // AI 搜索視圖
+        aiSearchLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={{ marginTop: 10 }}>Gemini AI 正在搜索...</Text>
+          </View>
+        ) : aiSearchResults.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>
+              {aiSearchResults.length === 0 && aiSearchQuery
+                ? "未找到符合的結果"
+                : "輸入搜索條件，例如：五月天、2026年2月、台北"}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={aiSearchResults}
+            renderItem={renderConcertItem}
+            keyExtractor={(item, idx) => idx.toString()}
+            contentContainerStyle={styles.listContent}
+          />
+        )
+      ) : currentTab === "artist" ? (
+        // 按藝人分類視圖
+        selectedArtist ? (
+          <ScrollView contentContainerStyle={styles.listContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setSelectedArtist(null)}
+            >
+              <Text style={styles.backButtonText}>← 返回</Text>
+            </TouchableOpacity>
+            <Text style={styles.artistTitle}>{selectedArtist.artist}</Text>
+            <FlatList
+              data={selectedArtist.concerts}
+              renderItem={renderConcertItem}
+              keyExtractor={(item, idx) => item.id || `concert-${idx}`}
+              scrollEnabled={false}
+            />
+          </ScrollView>
+        ) : artistConcerts.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Text style={styles.emptyText}>
+              {getTranslation("noConcerts", language)}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={artistConcerts}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.artistCard}
+                onPress={() => setSelectedArtist(item)}
+              >
+                <Text style={styles.artistCardName}>{item.artist}</Text>
+                <Text style={styles.artistCardCount}>
+                  {item.concert_count} {item.concert_count === 1 ? "場演唱會" : "場演唱會"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item) => item.artist}
+            contentContainerStyle={styles.listContent}
+          />
+        )
       ) : displayConcerts.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
@@ -918,6 +1117,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 6,
+    marginRight: 8,
+  },
+  crawlButton: {
+    backgroundColor: "#8b5cf6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  crawlButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   langToggleText: {
     color: "#f5f7ff",
@@ -972,8 +1184,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   searchInput: {
+    flex: 1,
     backgroundColor: "#162b54",
     borderColor: "#24407a",
     borderWidth: 1,
@@ -982,6 +1198,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     color: "#f5f7ff",
     fontSize: 14,
+  },
+  searchButton: {
+    backgroundColor: "#007AFF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchButtonText: {
+    fontSize: 18,
   },
 
   listContent: {
@@ -1017,6 +1242,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#8fa3c7",
     marginTop: 4,
+  },
+  concertPrice: {
+    fontSize: 13,
+    color: "#10b981",
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  sourceContainer: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#24407a",
   },
   countdown: {
     fontSize: 12,
@@ -1108,6 +1345,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ff6b6b",
     fontWeight: "700",
+  },
+
+  artistCard: {
+    backgroundColor: "#162b54",
+    borderColor: "#24407a",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    justifyContent: "center",
+  },
+  artistCardName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f5f7ff",
+    marginBottom: 6,
+  },
+  artistCardCount: {
+    fontSize: 13,
+    color: "#8fa3c7",
+  },
+
+  backButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+    marginBottom: 12,
+  },
+  backButtonText: {
+    fontSize: 15,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+
+  artistTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#f5f7ff",
+    marginBottom: 16,
   },
 
   modalActions: {

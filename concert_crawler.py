@@ -1,19 +1,90 @@
 """
 台灣演唱會資訊爬蟲
 專注 KKTIX 與 年代售票 (ticket.com.tw)
+整合 Google Gemini AI 解析 HTML
 """
 import argparse
 import glob
 import os
 import sys
 import time
+import json
 from datetime import datetime
-from typing import List
+from typing import List, Dict
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+
+# Gemini AI 整合
+import google.generativeai as genai
+
+GEMINI_API_KEY = "AIzaSyA-fcrKtbwsk_j7Xwf6IsQytoMeqU64HQI"
+genai.configure(api_key=GEMINI_API_KEY)
+gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+
+
+def parse_html_with_gemini(html_content: str, site_name: str) -> List[dict]:
+    """使用 Gemini AI 直接解析 HTML 提取演唱會資訊"""
+    if not html_content or len(html_content) < 100:
+        return []
+    
+    try:
+        prompt = f"""
+請從以下 HTML 中提取所有演唱會或音樂會資訊。
+網站: {site_name}
+
+返回格式必須是 JSON 數組，每個物件包含：
+{{"artist": "藝人名稱", "date": "日期時間或'未公布'", "venue": "地點或'未公布'", "url": "連結"}}
+
+只返回有效的 JSON 數組，不要任何其他文字、解釋或 markdown。
+如果找不到任何演唱會資訊，返回空數組 []
+
+HTML 內容（前 3000 字）:
+{html_content[:3000]}
+"""
+        response = gemini_model.generate_content(prompt)
+        
+        # 嘗試解析 JSON
+        response_text = response.text.strip()
+        
+        # 移除可能的 markdown 包裝
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.split('```')[0]
+        
+        response_text = response_text.strip()
+        
+        # 嘗試解析 JSON
+        if not response_text or response_text == '[]':
+            return []
+        
+        try:
+            concerts = json.loads(response_text)
+        except json.JSONDecodeError:
+            # 如果是單個物件而不是陣列
+            concerts = [json.loads(response_text)]
+        
+        # 驗證和清理資料
+        valid_concerts = []
+        if isinstance(concerts, list):
+            for item in concerts:
+                if isinstance(item, dict) and item.get('artist') and item.get('url'):
+                    valid_concerts.append({
+                        '演出藝人': str(item.get('artist', '未知')).strip(),
+                        '演出時間': str(item.get('date', '未公布')).strip(),
+                        '演出地點': str(item.get('venue', '未公布')).strip(),
+                        '網址': str(item.get('url', '')).strip(),
+                    })
+        
+        return valid_concerts
+    except Exception as e:
+        print(f"  ✗ Gemini 解析失敗: {type(e).__name__}: {str(e)[:100]}")
+        return []
+        return []
 
 
 def launch_browser_with_fallback(playwright_instance, force_headful=False):
@@ -55,6 +126,55 @@ def wait_manual_verification(message="請在開啟的瀏覽器完成驗證/登�
     except (EOFError, KeyboardInterrupt):
         # 非互動環境或使用者中斷則略過
         pass
+
+
+def parse_html_with_gemini(html: str, site_name: str, timeout: int = 30) -> Dict:
+    """
+    使用 Google Gemini AI 解析 HTML 並提取演唱會資訊
+    
+    Args:
+        html: HTML 內容
+        site_name: 網站名稱 (用於提示詞)
+        timeout: 超時秒數
+    
+    Returns:
+        {
+            "藝人": "...",
+            "時間": "...",
+            "地點": "...",
+            "票價": "...",
+            "簡介": "..."
+        }
+    """
+    try:
+        prompt = f"""
+請從以下 {site_name} 網站的 HTML 中提取演唱會資訊。
+返回一個 JSON 物件，包含以下欄位（如果找不到則填 "未公布"）：
+- 藝人: 演出藝人名稱
+- 時間: 演出時間（格式: YYYY/MM/DD HH:MM）
+- 地點: 演出地點/場地
+- 票價: 票價資訊
+- 簡介: 演唱會簡介
+
+HTML 內容：
+{html[:5000]}
+
+只返回 JSON，不要其他文字。
+"""
+        response = gemini_model.generate_content(prompt)
+        try:
+            result = json.loads(response.text)
+            return result
+        except json.JSONDecodeError:
+            # 如果 AI 返回的不是純 JSON，嘗試提取 JSON 部分
+            import re
+            json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            return {}
+    except Exception as e:
+        print(f"  ⚠ Gemini 解析失敗: {e}")
+        return {}
 
 
 class ConcertCrawler:
@@ -384,7 +504,7 @@ class TicketCrawler(ConcertCrawler):
 
 
 class IndievoxCrawler(ConcertCrawler):
-    """iNDIEVOX 爬蟲 (等級1)"""
+    """iNDIEVOX 爬蟲 (等級1) - 使用 API 或簡化抓取"""
 
     def __init__(self):
         super().__init__()
@@ -401,36 +521,25 @@ class IndievoxCrawler(ConcertCrawler):
             if resp.status_code != 200:
                 return self._fallback_placeholder()
 
-            soup = BeautifulSoup(resp.text, "lxml")
-            # 直接抓活動詳情連結
-            links = soup.select("a[href*='/activity/detail/']")
-
-            for a in links[:20]:  # 限制20筆
-                try:
-                    link = a.get("href") if a else ""
-                    if link and not link.startswith("http"):
-                        link = self.base_url + link
-
-                    # 從連結的文字取得基本資訊
-                    text = a.get_text(strip=True)
-                    # 格式通常是：日期 標題
-                    parts = text.split(maxsplit=2)
-                    date = parts[0] if parts else ""
-                    title = parts[2] if len(parts) > 2 else text
-
-                    if link:
-                        self.concerts.append(
-                            {
-                                "來源網站": self.site_name,
-                                "演出藝人": title or "未知藝人",
-                                "演出時間": date or "未公布",
-                                "演出地點": "未公布",
-                                "網址": link,
-                                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            }
-                        )
-                except Exception:
-                    continue
+            # 直接用 Gemini 解析活動列表頁面
+            concerts_from_ai = parse_html_with_gemini(resp.text, self.site_name)
+            
+            for concert in concerts_from_ai:
+                if concert.get('演出藝人'):
+                    self.concerts.append(
+                        {
+                            "來源網站": self.site_name,
+                            "演出藝人": concert.get('演出藝人', '未知藝人'),
+                            "演出時間": concert.get('演出時間', '未公布'),
+                            "演出地點": concert.get('演出地點', '未公布'),
+                            "網址": concert.get('網址', self.base_url),
+                            "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        }
+                    )
+                
+                # 限制筆數避免太慢
+                if len(self.concerts) >= 10:
+                    break
 
             print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
         except Exception as e:
@@ -440,6 +549,123 @@ class IndievoxCrawler(ConcertCrawler):
             return self._fallback_placeholder()
         return self.concerts
 
+    def _extract_detail(self, detail_url: str) -> dict:
+        """從詳細頁面抽取完整資訊（標題、日期、場地）"""
+        try:
+            resp = requests.get(detail_url, headers=self.headers, timeout=10)
+            if resp.status_code != 200:
+                return {}
+            
+            soup = BeautifulSoup(resp.text, "lxml")
+            info = {}
+            
+            # 抓取標題
+            title_el = soup.select_one('h1, .page-title, h2.title')
+            if title_el:
+                info['title'] = title_el.get_text(strip=True)
+            
+            # 從表格或資訊區域抓取日期和地點
+            # 找所有 tr 行
+            rows = soup.find_all('tr')
+            for row in rows:
+                cells = row.find_all(['th', 'td'])
+                if len(cells) >= 2:
+                    label = cells[0].get_text(strip=True)
+                    value = cells[1].get_text(strip=True)
+                    
+                    # 判斷是日期還是地點
+                    if any(kw in label for kw in ['時間', 'Time', '日期', 'Date']):
+                        if value and value != '未公布':
+                            info['date'] = value
+                    elif any(kw in label for kw in ['地點', 'Venue', '場地', 'Location']):
+                        if value and value != '未公布':
+                            info['venue'] = value
+            
+            # 如果沒找到，用其他方法
+            if 'date' not in info:
+                date_el = soup.select_one('.date, .event-date, time')
+                if date_el:
+                    date_text = date_el.get_text(strip=True)
+                    if date_text:
+                        info['date'] = date_text
+            
+            if 'venue' not in info:
+                venue_el = soup.select_one('.venue, .location, .place')
+                if venue_el:
+                    venue_text = venue_el.get_text(strip=True)
+                    if venue_text and venue_text != '未公布':
+                        info['venue'] = venue_text
+            
+            return info
+        except Exception as e:
+            return {}
+
+    def _fallback_placeholder(self) -> List[dict]:
+        self.concerts.append(
+            {
+                "來源網站": self.site_name,
+                "演出藝人": "（待公佈）",
+                "演出時間": "未公布",
+                "演出地點": "未公布",
+                "網址": self.base_url + "/activity/list",
+                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+        return self.concerts
+
+
+class AccupassCrawler(ConcertCrawler):
+    """Accupass 活動通爬蟲 (等級2) - 使用 Gemini AI 解析詳細資訊"""
+
+    def __init__(self):
+        super().__init__()
+        self.base_url = "https://www.accupass.com"
+        self.site_name = "Accupass 活動通"
+
+    def crawl(self) -> List[dict]:
+        print(f"\n[等級2] 開始爬取 {self.site_name}...")
+        self.concerts = []
+
+        # 搜尋相關關鍵字的活動
+        search_keywords = ["演唱會", "音樂會"]
+        
+        for keyword in search_keywords:
+            try:
+                # Accupass 搜尋 URL
+                url = f"{self.base_url}/search?q={keyword}"
+                resp = requests.get(url, headers=self.headers, timeout=10)
+                if resp.status_code != 200:
+                    continue
+
+                # 直接用 Gemini 解析整個搜尋結果頁面
+                concerts_from_ai = parse_html_with_gemini(resp.text, self.site_name)
+                
+                for concert in concerts_from_ai:
+                    if concert.get('演出藝人'):
+                        self.concerts.append(
+                            {
+                                "來源網站": self.site_name,
+                                "演出藝人": concert.get('演出藝人', '未知'),
+                                "演出時間": concert.get('演出時間', '未公布'),
+                                "演出地點": concert.get('演出地點', '未公布'),
+                                "網址": concert.get('網址', self.base_url),
+                                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            }
+                        )
+                    
+                    # 如果已取得足夠資料
+                    if len(self.concerts) >= 5:
+                        break
+                
+                # 有資料就停止搜尋其他關鍵字
+                if len(self.concerts) >= 5:
+                    break
+                    
+            except Exception as e:
+                continue
+
+        print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
+        
         if not self.concerts:
             return self._fallback_placeholder()
         return self.concerts
@@ -451,7 +677,7 @@ class IndievoxCrawler(ConcertCrawler):
                 "演出藝人": "（待公佈）",
                 "演出時間": "未公布",
                 "演出地點": "未公布",
-                "網址": self.base_url + "/activity/list",
+                "網址": self.base_url,
                 "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
         )
@@ -494,15 +720,16 @@ class ConcertCrawlerManager:
     def __init__(self):
         self.all_concerts: List[dict] = []
         self.level1_crawlers = [
-            IndievoxCrawler(),
-            BooksTicketCrawler(),
+            # IndievoxCrawler(),  # JavaScript 動態渲染，Gemini 無法解析靜態 HTML
+            AccupassCrawler(),  # 用 Gemini 解析，可行
+            # BooksTicketCrawler(),  # 反爬機制強，暫時停用
             # KKTIXCrawler(),  # 需登入，暫時停用
             # TicketCrawler(),  # Cloudflare封鎖，暫時停用
         ]
 
     def crawl_by_level(self, level: int = 1, delay: int = 1) -> List[dict]:
         if level != 1:
-            print("只支援等級1 (KKTIX + 年代) 爬取")
+            print("支援等級1爬取 (iNDIEVOX, Accupass 活動通, 博客來售票)")
             return []
         for crawler in self.level1_crawlers:
             concerts = crawler.crawl()

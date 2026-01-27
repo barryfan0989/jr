@@ -288,8 +288,16 @@ def update_profile():
 
 @app.route('/api/concerts', methods=['GET'])
 def get_concerts():
-    """取得所有演唱會列表"""
+    """取得所有演唱會列表 - 優先返回真實網站爬取的資料"""
     concerts = load_concerts()
+    
+    if not concerts:
+        return jsonify({
+            'status': 'success',
+            'total': 0,
+            'concerts': [],
+            'message': '暫無演唱會資料，請先執行爬蟲'
+        }), 200
     
     # 添加 ID 欄位
     for concert in concerts:
@@ -303,16 +311,19 @@ def get_concerts():
     
     filtered = concerts
     if query:
-        filtered = [c for c in filtered if query in c['演出藝人'].lower() or query in c['演出地點'].lower()]
+        filtered = [c for c in filtered if 
+                   query in str(c.get('演出藝人', '')).lower() or 
+                   query in str(c.get('演出地點', '')).lower()]
     if venue:
-        filtered = [c for c in filtered if venue in c['演出地點'].lower()]
+        filtered = [c for c in filtered if venue in str(c.get('演出地點', '')).lower()]
     if artist:
-        filtered = [c for c in filtered if artist in c['演出藝人'].lower()]
+        filtered = [c for c in filtered if artist in str(c.get('演出藝人', '')).lower()]
     
     return jsonify({
         'status': 'success',
         'total': len(filtered),
-        'concerts': filtered
+        'concerts': filtered,
+        'data_source': '真實網站'
     }), 200
 
 @app.route('/api/concerts/<concert_id>', methods=['GET'])
@@ -330,6 +341,99 @@ def get_concert(concert_id):
             }), 200
     
     return jsonify({'status': 'error', 'message': '演唱會不存在'}), 404
+
+@app.route('/api/concerts/by-artist/list', methods=['GET'])
+def get_concerts_by_artist():
+    """取得按藝人分類的演唱會列表"""
+    concerts = load_concerts()
+    
+    # 為每個演唱會添加ID
+    for concert in concerts:
+        if 'id' not in concert:
+            concert['id'] = generate_concert_id(concert)
+    
+    # 按藝人名稱分類
+    artist_concerts = {}
+    for concert in concerts:
+        artist = concert.get('演出藝人', '未知藝人').strip()
+        if artist not in artist_concerts:
+            artist_concerts[artist] = []
+        artist_concerts[artist].append(concert)
+    
+    # 按藝人名稱排序
+    sorted_artists = sorted(artist_concerts.keys())
+    
+    # 構建分類結果
+    result = []
+    for artist in sorted_artists:
+        # 同一藝人的演唱會按日期排序
+        concerts_by_artist = sorted(
+            artist_concerts[artist],
+            key=lambda x: x.get('演出時間', ''),
+            reverse=True
+        )
+        result.append({
+            'artist': artist,
+            'concert_count': len(concerts_by_artist),
+            'concerts': concerts_by_artist
+        })
+    
+    return jsonify({
+        'status': 'success',
+        'total_artists': len(result),
+        'artist_list': result
+    }), 200
+
+@app.route('/api/concerts/artists', methods=['GET'])
+def get_artist_list():
+    """取得所有藝人列表（用於搜尋和過濾）"""
+    concerts = load_concerts()
+    
+    # 收集所有藝人
+    artists = set()
+    for concert in concerts:
+        artist = concert.get('演出藝人', '').strip()
+        if artist and artist != '未知藝人':
+            artists.add(artist)
+    
+    # 按字母順序排序
+    sorted_artists = sorted(list(artists))
+    
+    return jsonify({
+        'status': 'success',
+        'total': len(sorted_artists),
+        'artists': sorted_artists
+    }), 200
+
+@app.route('/api/concerts/by-artist/<artist_name>', methods=['GET'])
+def get_concerts_by_specific_artist(artist_name):
+    """取得特定藝人的所有演唱會"""
+    concerts = load_concerts()
+    
+    # 為每個演唱會添加ID
+    for concert in concerts:
+        if 'id' not in concert:
+            concert['id'] = generate_concert_id(concert)
+    
+    # 過濾特定藝人的演唱會
+    artist_concerts = [
+        c for c in concerts 
+        if c.get('演出藝人', '').lower() == artist_name.lower()
+    ]
+    
+    # 按日期排序
+    artist_concerts = sorted(
+        artist_concerts,
+        key=lambda x: x.get('演出時間', ''),
+        reverse=True
+    )
+    
+    return jsonify({
+        'status': 'success',
+        'artist': artist_name,
+        'total': len(artist_concerts),
+        'concerts': artist_concerts
+    }), 200
 
 # =====================
 # 關注 API
@@ -459,6 +563,217 @@ def delete_reminder(concert_id):
         'status': 'success',
         'message': '提醒已刪除'
     }), 200
+
+# =====================
+# AI 搜索功能 - 使用 Gemini 直接生成演唱會資訊
+# =====================
+
+@app.route('/api/concerts/generate-all', methods=['POST'])
+def generate_all_concerts_with_ai():
+    """讓 AI 訪問真實網站，抓取並分類演唱會資訊"""
+    try:
+        import google.generativeai as genai
+        
+        GEMINI_API_KEY = "AIzaSyA-fcrKtbwsk_j7Xwf6IsQytoMeqU64HQI"
+        genai.configure(api_key=GEMINI_API_KEY)
+        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # 要抓取的真實網站列表
+        websites = [
+            {
+                'name': 'iNDIEVOX',
+                'url': 'https://www.indievox.com/activity/list',
+                'description': '台灣獨立音樂廠商售票平台'
+            },
+            {
+                'name': 'Accupass',
+                'url': 'https://www.accupass.com/search?q=演唱會',
+                'description': '台灣活動通票券販售平台'
+            }
+        ]
+        
+        all_concerts = []
+        
+        # 為每個網站抓取並分析
+        for website in websites:
+            try:
+                print(f"正在訪問 {website['name']}...")
+                resp = requests.get(website['url'], headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }, timeout=10)
+                
+                if resp.status_code != 200:
+                    continue
+                
+                # 將 HTML 發送給 AI 分析
+                html_content = resp.text[:10000]  # 只取前 10000 字元避免超長
+                
+                prompt = f"""
+你是票券分析專家。請分析以下來自 {website['name']} 的 HTML，
+提取所有演唱會/音樂會資訊。
+
+返回 JSON 陣列，每筆包含：
+{{"artist": "藝人名稱", "date": "日期時間", "venue": "地點", "price": "票價", "url": "連結"}}
+
+只返回 JSON，不要其他文字。如果找不到資訊，返回 []
+
+HTML 內容：
+{html_content}
+"""
+                
+                response = gemini_model.generate_content(prompt, stream=False)
+                response_text = response.text.strip()
+                
+                # 清理 markdown
+                if response_text.startswith('```'):
+                    response_text = response_text.split('```')[1]
+                    if response_text.startswith('json'):
+                        response_text = response_text[4:]
+                    response_text = response_text.split('```')[0].strip()
+                
+                # 解析並添加網站資訊
+                try:
+                    concerts = json.loads(response_text)
+                    if isinstance(concerts, list):
+                        for concert in concerts:
+                            if concert.get('artist'):
+                                concert['site'] = website['name']
+                                all_concerts.append(concert)
+                except:
+                    pass
+                    
+            except Exception as e:
+                print(f"  訪問 {website['name']} 失敗: {e}")
+                continue
+        
+        # 轉換格式並分類
+        valid_concerts = []
+        for item in all_concerts:
+            if item.get('artist'):
+                valid_concerts.append({
+                    '來源網站': item.get('site', '未知'),
+                    '演出藝人': str(item.get('artist', '')).strip(),
+                    '演出時間': str(item.get('date', '未公布')).strip(),
+                    '演出地點': str(item.get('venue', '未公布')).strip(),
+                    '票價': str(item.get('price', '')).strip(),
+                    '網址': str(item.get('url', '')).strip(),
+                    '爬取時間': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+        
+        # 保存到檔案
+        os.makedirs('data', exist_ok=True)
+        with open(CONCERTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(valid_concerts, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'已從真實網站抓取並分類 {len(valid_concerts)} 筆演唱會資訊',
+            'count': len(valid_concerts),
+            'data_source': '真實網站',
+            'concerts': valid_concerts[:10]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'抓取失敗: {str(e)}'
+        }), 500
+
+@app.route('/api/concerts/search', methods=['POST'])
+def search_concerts_with_ai():
+    """使用 AI 搜索演唱會資訊
+    
+    請求 JSON:
+    {
+        "query": "五月天 2026",
+        "limit": 10  // 可選，預設 10
+    }
+    """
+    try:
+        # 延遲導入，避免模組不存在時服務啟動失敗
+        import google.generativeai as genai
+        
+        # 初始化 Gemini
+        GEMINI_API_KEY = "AIzaSyA-fcrKtbwsk_j7Xwf6IsQytoMeqU64HQI"
+        genai.configure(api_key=GEMINI_API_KEY)
+        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        data = request.get_json() or {}
+        query = data.get('query', '').strip()
+        limit = data.get('limit', 10)
+        
+        if not query:
+            return jsonify({
+                'status': 'error',
+                'message': '請輸入搜索關鍵字'
+            }), 400
+        
+        # 調用 Gemini AI
+        prompt = f"""
+你是台灣演唱會資訊助手。請根據以下搜索條件，提供符合的演唱會資訊。
+
+搜索條件: {query}
+返回數量: 最多 {limit} 筆
+
+請返回 JSON 格式，每筆包含：
+- artist: 藝人名稱（必須）
+- date: 演出日期時間，格式 "YYYY/MM/DD HH:MM"（如不確定返回 "待確認"）
+- venue: 演出地點（如不確定返回 "待確認"）
+- price: 票價範圍，例如 "600-3000"（可選）
+- url: 購票連結（可選）
+
+只返回 JSON 數組，不要其他文字。例如:
+[
+  {{"artist": "五月天", "date": "2026/02/15 19:30", "venue": "台北小巨蛋", "price": "1200-3500", "url": ""}},
+  ...
+]
+"""
+        
+        response = gemini_model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # 清理 markdown 格式
+        if response_text.startswith('```'):
+            response_text = response_text.split('```')[1]
+            if response_text.startswith('json'):
+                response_text = response_text[4:]
+            response_text = response_text.split('```')[0]
+        
+        response_text = response_text.strip()
+        
+        # 解析 JSON
+        try:
+            concerts = json.loads(response_text)
+        except json.JSONDecodeError:
+            concerts = []
+        
+        # 驗證資料
+        valid_concerts = []
+        if isinstance(concerts, list):
+            for item in concerts:
+                if isinstance(item, dict) and item.get('artist'):
+                    valid_concerts.append({
+                        '來源網站': 'AI 搜索',
+                        '演出藝人': item.get('artist', '').strip(),
+                        '演出時間': item.get('date', '待確認').strip(),
+                        '演出地點': item.get('venue', '待確認').strip(),
+                        '票價': item.get('price', '').strip(),
+                        '網址': item.get('url', '').strip(),
+                        '爬取時間': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+        
+        return jsonify({
+            'status': 'success',
+            'query': query,
+            'count': len(valid_concerts),
+            'concerts': valid_concerts
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'搜索失敗: {str(e)}'
+        }), 500
 
 # =====================
 # 健康檢查
