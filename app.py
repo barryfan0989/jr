@@ -13,7 +13,7 @@ from functools import wraps
 import uuid
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:19000", "http://192.168.0.24:19000", "http://127.0.0.1:19000"])
+CORS(app, supports_credentials=True, origins=["http://localhost:8081", "http://localhost:19000", "http://192.168.0.175:8081", "http://127.0.0.1:8081", "http://127.0.0.1:19000"])
 
 # 設定
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
@@ -43,6 +43,18 @@ def init_data_files():
                 json.dump(default_content, f, ensure_ascii=False, indent=2)
 
 init_data_files()
+
+# 來源網站預設連結（當爬蟲未取得活動網址時使用）
+SOURCE_LINKS = {
+    'kktix': 'https://kktix.com',
+    '拓元': 'https://tixcraft.com',
+    'tixcraft': 'https://tixcraft.com',
+    'accupass': 'https://www.accupass.com',
+    'indievox': 'https://www.indievox.com',
+    'ticket.com.tw': 'https://www.ticket.com.tw',
+    '年代': 'https://www.ticket.com.tw',
+    'klook': 'https://www.klook.com/zh-TW',
+}
 
 # =====================
 # 資料操作函式
@@ -80,13 +92,39 @@ def load_concerts():
             return None
         return None
 
+    def normalize_concert(raw_concert: dict) -> dict:
+        """補齊缺失的售票連結並生成 ID"""
+        concert = raw_concert.copy()
+        link = concert.get('網址') or concert.get('url') or concert.get('link') or ''
+        source = str(concert.get('來源網站', '')).lower()
+
+        if not link:
+            for key, default_link in SOURCE_LINKS.items():
+                if key in source:
+                    link = default_link
+                    break
+
+        if link and not link.startswith(('http://', 'https://')):
+            link = f"https://{link.lstrip('/')}"
+
+        concert['網址'] = link
+
+        if 'id' not in concert:
+            concert['id'] = generate_concert_id(concert)
+
+        return concert
+
+    def _load_and_normalize(path):
+        concerts = _read_if_valid(path)
+        return [normalize_concert(c) for c in concerts] if concerts else None
+
     # 1) 先用 data/concerts.json（若有）
-    concerts = _read_if_valid(CONCERTS_FILE)
+    concerts = _load_and_normalize(CONCERTS_FILE)
     if concerts:
         return concerts
 
     # 2) 忽略 cookie 狀態檔（kktix_state.json），只在內容是演唱會列表時才使用
-    concerts = _read_if_valid('kktix_state.json')
+    concerts = _load_and_normalize('kktix_state.json')
     if concerts:
         return concerts
     
@@ -94,12 +132,12 @@ def load_concerts():
     json_files = [f for f in os.listdir('.') if f.startswith('演唱會資訊彙整_') and f.endswith('.json')]
     if json_files:
         latest_file = sorted(json_files)[-1]
-        concerts = _read_if_valid(latest_file)
+        concerts = _load_and_normalize(latest_file)
         if concerts:
             return concerts
     
     # 4) 模擬資料（用於測試）
-    return [
+    fallback = [
         {
             "來源網站": "KKTIX",
             "演出藝人": "五月天",
@@ -117,6 +155,8 @@ def load_concerts():
             "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         },
     ]
+
+    return [normalize_concert(c) for c in fallback]
 
 def generate_concert_id(concert):
     """根據演唱會資訊生成 ID"""
@@ -574,12 +614,29 @@ def generate_all_concerts_with_ai():
     try:
         import google.generativeai as genai
         
-        GEMINI_API_KEY = "AIzaSyA-fcrKtbwsk_j7Xwf6IsQytoMeqU64HQI"
+        GEMINI_API_KEY = "AIzaSyAOBh3Zkrr5u40DgmrSUlulHYzBSgM8X48"
         genai.configure(api_key=GEMINI_API_KEY)
         gemini_model = genai.GenerativeModel('gemini-2.5-flash')
         
         # 要抓取的真實網站列表
         websites = [
+            # 等級1（主流/核心流量）
+            {
+                'name': '拓元 TixCraft',
+                'url': 'https://tixcraft.com/activity/game',
+                'description': '台灣最大售票系統'
+            },
+            {
+                'name': '年代售票',
+                'url': 'https://ticket.com.tw/dm.html',
+                'description': '年代售票網'
+            },
+            {
+                'name': 'KKTIX',
+                'url': 'https://kktix.com/events',
+                'description': '台灣活動售票平台'
+            },
+            # 等級2（次主流與獨立）
             {
                 'name': 'iNDIEVOX',
                 'url': 'https://www.indievox.com/activity/list',
@@ -589,6 +646,12 @@ def generate_all_concerts_with_ai():
                 'name': 'Accupass',
                 'url': 'https://www.accupass.com/search?q=演唱會',
                 'description': '台灣活動通票券販售平台'
+            },
+            # 等級3（補充/佔位）
+            {
+                'name': '博客來售票',
+                'url': 'https://ticket.books.com.tw',
+                'description': '博客來售票網'
             }
         ]
         
@@ -609,13 +672,22 @@ def generate_all_concerts_with_ai():
                 html_content = resp.text[:10000]  # 只取前 10000 字元避免超長
                 
                 prompt = f"""
-你是票券分析專家。請分析以下來自 {website['name']} 的 HTML，
-提取所有演唱會/音樂會資訊。
+你是台灣演唱會票券分析專家。請仔細分析以下 HTML 內容，找出所有演唱會/音樂會/LiveHouse 演出活動。
 
-返回 JSON 陣列，每筆包含：
-{{"artist": "藝人名稱", "date": "日期時間", "venue": "地點", "price": "票價", "url": "連結"}}
+網站：{website['name']}
+任務：提取活動資訊並返回 JSON 陣列
 
-只返回 JSON，不要其他文字。如果找不到資訊，返回 []
+注意事項：
+1. 尋找包含藝人名稱、日期、地點的區塊（通常在 <div class="event">, <li>, <article> 等標籤中）
+2. 藝人名稱可能在標題、h1-h6、class="title/name/artist" 等位置
+3. 日期可能格式：2026/01/27、2026-01-27、1月27日等
+4. 地點常見：台北小巨蛋、Legacy、河岸留言等
+5. 價格可能格式：NT$1200、$1200-3500、1200元等
+6. 如果找不到完整資訊，嘗試推測或標記為"未公布"
+7. 即使資訊不完整，只要有藝人名稱就要保留
+
+返回格式（只返回 JSON 陣列，不要其他文字）：
+[{{"artist": "藝人", "date": "2026/01/27", "venue": "台北小巨蛋", "price": "1200-3500", "url": "https://..."}}]
 
 HTML 內容：
 {html_content}
@@ -679,117 +751,40 @@ HTML 內容：
             'message': f'抓取失敗: {str(e)}'
         }), 500
 
-@app.route('/api/concerts/search', methods=['POST'])
-def search_concerts_with_ai():
-    """使用 AI 搜索演唱會資訊
-    
-    請求 JSON:
-    {
-        "query": "五月天 2026",
-        "limit": 10  // 可選，預設 10
-    }
-    """
+@app.route('/api/concerts/generate-all', methods=['POST'])
+def generate_all_concerts():
+    """從所有等級的爬蟲抓取演唱會資訊，支援逾時與延遲設定"""
     try:
-        # 延遲導入，避免模組不存在時服務啟動失敗
-        import google.generativeai as genai
-        
-        # 初始化 Gemini
-        GEMINI_API_KEY = "AIzaSyA-fcrKtbwsk_j7Xwf6IsQytoMeqU64HQI"
-        genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        data = request.get_json() or {}
-        query = data.get('query', '').strip()
-        limit = data.get('limit', 10)
-        
-        if not query:
+        from concert_crawler import ConcertCrawlerManager
+
+        body = request.json or {}
+        per_site_timeout = int(body.get('per_site_timeout', 8))  # 每站逾時秒數，預設 8s
+        delay = int(body.get('delay', 1))  # 站點間延遲秒數，預設 1s
+
+        manager = ConcertCrawlerManager(per_site_timeout=per_site_timeout)
+        concerts = manager.crawl_by_level('all', delay=delay)
+
+        if not concerts:
             return jsonify({
                 'status': 'error',
-                'message': '請輸入搜索關鍵字'
-            }), 400
-        
-        # 調用 Gemini AI
-        prompt = f"""
-你是台灣演唱會資訊助手。請根據以下搜索條件，提供符合的演唱會資訊。
+                'message': '未能抓取到任何演唱會資訊'
+            }), 200
 
-搜索條件: {query}
-返回數量: 最多 {limit} 筆
+        save_json(CONCERTS_FILE, concerts)
 
-請返回 JSON 格式，每筆包含：
-- artist: 藝人名稱（必須）
-- date: 演出日期時間，格式 "YYYY/MM/DD HH:MM"（如不確定返回 "待確認"）
-- venue: 演出地點（如不確定返回 "待確認"）
-- price: 票價範圍，例如 "600-3000"（可選）
-- url: 購票連結（可選）
-
-只返回 JSON 數組，不要其他文字。例如:
-[
-  {{"artist": "五月天", "date": "2026/02/15 19:30", "venue": "台北小巨蛋", "price": "1200-3500", "url": ""}},
-  ...
-]
-"""
-        
-        response = gemini_model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        # 清理 markdown 格式
-        if response_text.startswith('```'):
-            response_text = response_text.split('```')[1]
-            if response_text.startswith('json'):
-                response_text = response_text[4:]
-            response_text = response_text.split('```')[0]
-        
-        response_text = response_text.strip()
-        
-        # 解析 JSON
-        try:
-            concerts = json.loads(response_text)
-        except json.JSONDecodeError:
-            concerts = []
-        
-        # 驗證資料
-        valid_concerts = []
-        if isinstance(concerts, list):
-            for item in concerts:
-                if isinstance(item, dict) and item.get('artist'):
-                    valid_concerts.append({
-                        '來源網站': 'AI 搜索',
-                        '演出藝人': item.get('artist', '').strip(),
-                        '演出時間': item.get('date', '待確認').strip(),
-                        '演出地點': item.get('venue', '待確認').strip(),
-                        '票價': item.get('price', '').strip(),
-                        '網址': item.get('url', '').strip(),
-                        '爬取時間': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-        
         return jsonify({
             'status': 'success',
-            'query': query,
-            'count': len(valid_concerts),
-            'concerts': valid_concerts
+            'count': len(concerts),
+            'concerts': concerts,
+            'message': '已抓取所有等級售票網站的演唱會資訊',
+            'per_site_timeout': per_site_timeout,
+            'delay': delay
         }), 200
-        
     except Exception as e:
         return jsonify({
             'status': 'error',
-            'message': f'搜索失敗: {str(e)}'
+            'message': f'抓取失敗: {str(e)[:120]}'
         }), 500
-
-# =====================
-# 健康檢查
-# =====================
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """健康檢查"""
-    return jsonify({
-        'status': 'success',
-        'message': 'API is running',
-        'timestamp': datetime.now().isoformat()
-    }), 200
-
-# =====================
-# 錯誤處理
 # =====================
 
 @app.errorhandler(404)
