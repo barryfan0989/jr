@@ -80,6 +80,44 @@ python ticket_sites_list.py
 - 結構化的 JSON 格式
 - 便於後續程式處理
 
+### 轉成 SQLite 資料庫
+
+```bash
+python json_to_sqlite.py
+```
+
+預設會匯入根目錄下的 `all_events_*.json` 與 `演唱會資訊彙整_*.json`，
+並輸出到 `data/concerts.db`。
+
+若要自訂來源或資料庫路徑：
+
+```bash
+python json_to_sqlite.py --db data/my_concerts.db --input-glob "all_events_*.json" --input-glob "演唱會資訊彙整_*.json"
+```
+
+### 轉成 MySQL 資料庫
+
+先安裝 MySQL 驅動：
+
+```bash
+pip install -r requirements.txt
+```
+
+建立資料庫並匯入：
+
+```bash
+python json_to_mysql.py --create-db --db concerts --user root --password "your_password"
+```
+
+若要自訂來源或連線資訊：
+
+```bash
+python json_to_mysql.py --host 127.0.0.1 --port 3306 --db concerts --user root --password "your_password" \
+   --input-glob "all_events_*.json" --input-glob "演唱會資訊彙整_*.json"
+```
+
+也可使用環境變數：`MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_USER`、`MYSQL_PASSWORD`、`MYSQL_DB`。
+
 ## 資料欄位
 
 | 欄位名稱 | 說明 |
