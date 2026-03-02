@@ -9,10 +9,3 @@ class IndievoxCrawler(BaseTicketCrawler):
     
     def get_target_url(self) -> str:
         return 'https://www.indievox.com/activity/list'
-
-
-class AccupassCrawler(BaseTicketCrawler):
-    """Accupass 活動通"""
-    
-    def get_target_url(self) -> str:
-        return 'https://www.accupass.com/search?q=演唱會'

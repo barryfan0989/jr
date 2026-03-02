@@ -16,14 +16,10 @@ if 'GEMINI_API_KEY' not in os.environ:
     print("   Linux/Mac: export GEMINI_API_KEY='your-key-here'")
     sys.exit(1)
 
-# 匯入所有爬蟲
+# 匯入爬蟲
 from crawlers import (
-    TixCraftCrawler,
     TicketComCrawler,
-    KKTIXCrawler,
-    IndievoxCrawler,
-    AccupassCrawler,
-    BooksTicketCrawler
+    IndievoxCrawler
 )
 
 
@@ -33,19 +29,13 @@ def main():
     print("🎵 台灣演唱會資訊爬蟲系統 v2.0")
     print("="*70)
     
-    # 初始化所有爬蟲（按 Tier 順序）
+    # 初始化爬蟲
     crawlers = [
-        # Tier 1 - 主流核心
-        TixCraftCrawler(),
+        # Tier 1 - 年代售票
         TicketComCrawler(),
-        KKTIXCrawler(),
         
-        # Tier 2 - 次主流與獨立
-        IndievoxCrawler(),
-        AccupassCrawler(),
-        
-        # Tier 3 - 補充
-        BooksTicketCrawler()
+        # Tier 2 - 獨立音樂平台
+        IndievoxCrawler()
     ]
     
     all_events = []
