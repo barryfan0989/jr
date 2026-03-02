@@ -9,16 +9,10 @@ import sys
 from datetime import datetime
 from typing import List, Dict
 
-# 確保環境變數
-if 'GEMINI_API_KEY' not in os.environ:
-    print("⚠️  請設定環境變數 GEMINI_API_KEY")
-    print("   Windows: $env:GEMINI_API_KEY='your-key-here'")
-    print("   Linux/Mac: export GEMINI_API_KEY='your-key-here'")
-    sys.exit(1)
-
 # 匯入爬蟲
 from crawlers import (
     TicketComCrawler,
+    KKTIXCrawler,
     IndievoxCrawler
 )
 
@@ -31,8 +25,9 @@ def main():
     
     # 初始化爬蟲
     crawlers = [
-        # Tier 1 - 年代售票
+        # Tier 1 - 主流售票平台
         TicketComCrawler(),
+        KKTIXCrawler(),
         
         # Tier 2 - 獨立音樂平台
         IndievoxCrawler()
