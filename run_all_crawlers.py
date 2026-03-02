@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 台灣演唱會爬蟲主程式
 整合所有 Tier 1~3 售票網站
@@ -9,18 +10,23 @@ import sys
 from datetime import datetime
 from typing import List, Dict
 
+# 設定 UTF-8 編碼（Windows 支援）
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+
 # 匯入爬蟲
 from crawlers import (
     TicketComCrawler,
     KKTIXCrawler,
-    IndievoxCrawler
+    TixCraftCrawler
 )
+from crawlers.tier2_crawlers import IndievoxCrawler
 
 
 def main():
     """主執行流程"""
     print("\n" + "="*70)
-    print("🎵 台灣演唱會資訊爬蟲系統 v2.0")
+    print("演唱會爬蟲系統 v2.0")
     print("="*70)
     
     # 初始化爬蟲
@@ -28,6 +34,7 @@ def main():
         # Tier 1 - 主流售票平台
         TicketComCrawler(),
         KKTIXCrawler(),
+        TixCraftCrawler(),
         
         # Tier 2 - 獨立音樂平台
         IndievoxCrawler()
@@ -47,18 +54,18 @@ def main():
             else:
                 failed_sites.append(crawler.site_name)
         except Exception as e:
-            print(f"✗ {crawler.site_name}: 發生異常 - {e}")
+            print(f"[失敗] {crawler.site_name}: 發生異常 - {e}")
             failed_sites.append(crawler.site_name)
     
     # 統計結果
     print("\n" + "="*70)
-    print("📊 爬取結果統計")
+    print("爬取結果統計")
     print("="*70)
-    print(f"✓ 成功網站: {success_count}/{len(crawlers)}")
-    print(f"✓ 總活動數: {len(all_events)}")
+    print(f"[成功] 網站: {success_count}/{len(crawlers)}")
+    print(f"[成功] 總活動數: {len(all_events)}")
     
     if failed_sites:
-        print(f"✗ 失敗網站: {', '.join(failed_sites)}")
+        print(f"[失敗] 網站: {', '.join(failed_sites)}")
     
     # 轉換為標準格式
     formatted_events = []
@@ -80,19 +87,19 @@ def main():
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(formatted_events, f, ensure_ascii=False, indent=2)
     
-    print(f"\n💾 已儲存至: {output_file}")
+    print(f"\n[保存] 已儲存至: {output_file}")
     
     # 同時更新到 data/concerts.json
     data_file = "data/concerts.json"
     try:
         with open(data_file, 'w', encoding='utf-8') as f:
             json.dump(formatted_events, f, ensure_ascii=False, indent=2)
-        print(f"💾 已更新至: {data_file}")
+        print(f"[保存] 已更新至: {data_file}")
     except Exception as e:
-        print(f"⚠️  無法更新 {data_file}: {e}")
+        print(f"[警告] 無法更新 {data_file}: {e}")
     
     print("\n" + "="*70)
-    print("✓ 爬取完成！")
+    print("[完成] 爬取完成！")
     print("="*70 + "\n")
     
     return formatted_events
