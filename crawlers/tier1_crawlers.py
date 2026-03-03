@@ -423,138 +423,76 @@ class KKTIXCrawler(BaseTicketCrawler):
 
 
 class TixCraftCrawler(BaseTicketCrawler):
-    """拓元售票（TixCraft）爬蟲 - 直接 HTML 解析"""
+    """拓元售票（TixCraft）爬蟲 - 使用新的精確字段爬蟲"""
+    
+    def __init__(self):
+        super().__init__()
+        self.site_name = "TixCraft"
     
     def get_target_url(self) -> str:
         return 'https://tixcraft.com/activity'
     
-    def _extract_event_urls(self, html: str) -> List[str]:
-        """從列表頁提取所有活動 URL"""
-        try:
-            soup = BeautifulSoup(html, 'html.parser')
-            urls = set()
-            
-            # TixCraft 活動列表中的連結
-            for link in soup.find_all('a', href=True):
-                href = link.get('href', '')
-                # 活動通常在 /activity/xxx 路徑下
-                if '/activity/' in href and not href.endswith('/activity'):
-                    if href.startswith('http'):
-                        urls.add(href)
-                    elif href.startswith('/'):
-                        urls.add('https://tixcraft.com' + href)
-            
-            urls = list(urls)
-            print(f"[掃蕩] TixCraft: 找到 {len(urls)} 個活動連結")
-            return urls
-        except Exception as e:
-            print(f"[錯誤] 提取 URL 失敗: {e}")
-            return []
-    
-    def _parse_event(self, html: str, url: str) -> Dict:
-        """解析單個活動頁面"""
-        try:
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # 提取標題
-            title_elem = soup.find('h1') or soup.find('h2')
-            title = title_elem.text.strip() if title_elem else '未知'
-            
-            # 提取日期
-            date_text = '未公布'
-            # 尋找包含日期信息的元素
-            for elem in soup.find_all(['span', 'div', 'p']):
-                text = elem.get_text()
-                date_match = re.search(r'(202[0-9]/[0-9]{1,2}/[0-9]{1,2}|[0-9]{1,2}月[0-9]{1,2}日)', text)
-                if date_match:
-                    date_text = date_match.group(1)
-                    break
-            
-            # 提取地點
-            location = '未公布'
-            location_elem = soup.find(string=re.compile('地點|場地|venue', re.I))
-            if location_elem:
-                parent = location_elem.find_parent()
-                if parent:
-                    location_text = parent.get_text()
-                    location_match = re.search(r'[^:\s]{2,}(?:舞台|廳|館|樂園|Hall|Living)', location_text)
-                    if location_match:
-                        location = location_match.group(0).strip()
-            
-            # 提取藝人
-            artist = '未知'
-            clean_title = re.sub(
-                r'^(?:【.*?】|\[.*?\]|\(.*?\)|RE:|[0-9]{4}年?|\s*)+',
-                '',
-                title
-            ).strip()
-            artist_match = re.search(r'^([^－\-—：:\s（]+)', clean_title)
-            if artist_match:
-                potential_artist = artist_match.group(1).strip()
-                if 1 < len(potential_artist) < 50:
-                    artist = potential_artist
-            
-            return {
-                'title': title,
-                'date': date_text,
-                'location': location,
-                'artist': artist,
-                'url': url,
-                'source': self.site_name
-            }
-        except Exception as e:
-            print(f"[警告] 解析失敗: {e}")
-            return None
-    
     def run(self) -> List[Dict]:
-        """執行 TixCraft 爬蟲 - 使用 HTML 直接解析"""
+        """執行 TixCraft 爬蟲 - 使用新的精確爬蟲"""
         print(f"\n{'='*60}")
-        print(f"TixCraft 爬蟲啟動 (HTML 解析)")
+        print(f"TixCraft 爬蟲啟動 (精確字段爬蟲)")
         print(f"{'='*60}")
         
         try:
-            # 取得列表頁
-            url = self.get_target_url()
-            html = self.fetch_html(url)
+            # 動態導入新的爬蟲類
+            import sys
+            import os
+            scraper_path = os.path.join(os.path.dirname(__file__), '..', 'tixcraft_scraper')
+            if scraper_path not in sys.path:
+                sys.path.insert(0, scraper_path)
             
-            if not html:
-                print("[失敗] 無法取得列表頁")
+            from tixcraft_precision_field_scraper import TixcraftPrecisionFieldScraper
+            
+            # 創建並執行新爬蟲
+            scraper = TixcraftPrecisionFieldScraper()
+            result = scraper.scrape_all_events()
+            
+            if not result or not result.get('events'):
+                print(f"[失敗] {self.site_name}: 未爬取到活動")
                 return []
             
-            # 提取活動 URL
-            event_urls = self._extract_event_urls(html)
-            
-            if not event_urls:
-                print("[失敗] 找不到活動 URL")
-                return []
-            
-            # 限制爬取數量以節省時間
-            max_events = 15
-            event_urls = event_urls[:max_events]
-            
-            # 解析每個活動
+            # 轉換為標準格式
+            events = result.get('events', [])
             all_events = []
-            success_count = 0
             
-            for i, event_url in enumerate(event_urls, 1):
+            for event in events:
                 try:
-                    print(f"[抓取] [{i}/{len(event_urls)}] {event_url.split('/')[-1]}")
-                    event_html = self.fetch_html(event_url)
-                    time.sleep(1)  # 避免請求過快
+                    # 從 event_info 中提取日期
+                    date_text = '未公布'
+                    event_info = event.get('event_info', '')
+                    if event_info and event_info != '未找到':
+                        date_match = re.search(r'(202[0-9]/[0-9]{1,2}/[0-9]{1,2}|[0-9]{1,2}月[0-9]{1,2}日|[0-9]{1,2}:\d{2})', event_info)
+                        if date_match:
+                            date_text = date_match.group(1)
                     
-                    if event_html:
-                        event = self._parse_event(event_html, event_url)
-                        if event and event['title'] != '未知':
-                            all_events.append(event)
-                            success_count += 1
-                            print(f"[成功] {event['title'][:40]}")
+                    # 轉換格式
+                    converted_event = {
+                        'title': event.get('title', '未知'),
+                        'date': date_text,
+                        'location': event.get('location', '未公布'),
+                        'artist': event.get('title', '未知').split('-')[0].strip()[:30],  # 簡化藝人提取
+                        'url': event.get('url', ''),
+                        'source': self.site_name
+                    }
+                    
+                    if converted_event['title'] != '未知':
+                        all_events.append(converted_event)
+                        print(f"[成功] {converted_event['title'][:40]}")
+                
                 except Exception as e:
-                    print(f"[錯誤] {str(e)[:50]}")
+                    print(f"[轉換失敗] {str(e)[:50]}")
+                    continue
             
-            print(f"\n[成功] TixCraft: 共找到 {success_count} 場活動")
+            print(f"\n[成功] {self.site_name}: 共找到 {len(all_events)} 場活動")
             return all_events
             
         except Exception as e:
-            print(f"[失敗] {e}")
+            print(f"[失敗] {self.site_name}: {e}")
             return []
+
 

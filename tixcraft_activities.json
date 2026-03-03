@@ -1,0 +1,66 @@
+{
+  "scrape_time": "2026-03-03 09:58:30",
+  "last_update": "2026-03-03 09:58:30",
+  "total_events": 6,
+  "success_count": 6,
+  "success_rate": "100.0%",
+  "extraction_method": "realtime_precision_field_extraction",
+  "current_progress": "6/95",
+  "current_session_success": 6,
+  "events": [
+    {
+      "index": 1,
+      "title": "公館青少年",
+      "event_info": "日期｜2026/07/25（六） ; 時間｜18:30 ; 售票日期｜03/04（三）12:00 ; * 1F VIP序號起始號為1號，1F GA序號起始號為201號，兩種票券將不會有實體的區域間隔。屆時入場將按照序號整隊，請務必於演出日前至遠雄創藝粉專詳讀入場辦法，如您未能於公布的整隊時間內報到整隊，將視同放棄您的序號優先權利，需按照現場工作人員指示依現場隊伍順序入場。",
+      "location": "公館青少年 GGteens 成立於2021年，曾參與台灣祭、大港開唱、浮現祭、浪人祭等音樂節演出，並... ; 公館青少年 GGteens 2026 年度專場青少年之後",
+      "price": "-VIP NT$1,600 (含 1:5合照、簽名會) ; -GA NT$1,300 ; -GA 雙人套票 NT$2,400 ; -NT$ 1,400 ; -NT$1,100 ; 身障席 NT$800",
+      "sale_time": "售票日期｜03/04（三）12:00",
+      "url": "https://tixcraft.com/activity/detail/26_ggteens"
+    },
+    {
+      "index": 2,
+      "title": "Fuji Rock",
+      "event_info": "活動日期：2026/07/24(五), 07/25(六), 07/26(日) ; 官方預售開賣時間：2026/02/20(五) 11:00~2026/05/15(五) 22:00 ; 普通銷售開賣時間：2026/05/16(六) ~ ; 在2026年7月26日時未滿15歲的顧客為對象。（需要出示附照片身份證明）",
+      "location": "活動地點：新潟縣苗場滑雪場（新潟湯澤町） ; 7. 本活動之演出場地於日本，凡舉票券退換、遺失等處理機制皆應依據當地票券相關規定辦理，本活動票券售出即不可",
+      "price": "票價說明",
+      "sale_time": "官方預售開賣時間：2026/02/20(五) 11:00~2026/05/15(五) 22:00 ; 普通銷售開賣時間：2026/05/16(六) ~ ; 2. 請從正規售票處購買門票。",
+      "url": "https://tixcraft.com/activity/detail/26_fujirock"
+    },
+    {
+      "index": 3,
+      "title": "Michael Learns to Rock",
+      "event_info": "演出時間：2026/07/05（日）19:00 (實際演出以現場為準) ; 售票時間： ; •⁠⁠ 預 售：2026/01/12（一）10:00-22:00 ; •⁠ 全面開賣：2026/01/13（二）10:00",
+      "location": "演出地點： 高雄流行音樂中心海音館",
+      "price": "票 價：VVIP 8,800 元／VIP 5,800 元／CAT1 4,800 元／CAT2 3,600 元／CAT3 2,800 元／CAT4 2,200 元／身障席 2,400 元",
+      "sale_time": "•⁠ 全面開賣：2026/01/13（二）10:00 ; ▪️ 預售購票需事先完成登記",
+      "url": "https://tixcraft.com/activity/detail/26_mltr"
+    },
+    {
+      "index": 4,
+      "title": "龜梨和也",
+      "event_info": "演出日期｜2026年6月27日(六) ; 演出時間｜17:00 (實際演出時間以現場公告為準) ; 售票時間｜2026年3月7日(六) 12:00",
+      "location": "演出地點｜高雄流行音樂中心(海音館)",
+      "price": "活動票價｜NT$5,200元 / NT$4,600元 / NT$4,200元 / NT$3,800元 / 身障席NT$2,100元",
+      "sale_time": "售票系統｜拓元售票系統 ; 售票時間｜2026年3月7日(六) 12:00",
+      "url": "https://tixcraft.com/activity/detail/26_kamenashi"
+    },
+    {
+      "index": 5,
+      "title": "Anson Seabra",
+      "event_info": "2026/ 05/ 25（一）20:00 ; VIP活動相關時間 : 請於演出日前至Live Nation Taiwan官方網站及社群確認VIP入場辦法 ; DATE：2026/ 5/ 25（一）20:00 ; 開賣時間Public on sale : ; 2026/01/19 (一) 11:00AM ; * 更多節目及活動資訊More Event Info: www.livenation.com.tw ; * VIP活動，請依照「升級VIP」券上的序號整隊排隊入場，如未能於公布的整隊時間內報到整隊，將視同放棄您的序號優先權利，須按照現場工作人員指示，依現場隊伍順序入場。為維護所有人的權益，序號數字大的不得要求往前與序號數字小的親友一同排隊，序號數字小的可以往後與序號數字大的親友一同排隊。",
+      "location": "地點：Legacy Taipei ; VENUE：Legacy Taipei",
+      "price": "NT$ 2,600",
+      "sale_time": "開賣時間Public on sale :",
+      "url": "https://tixcraft.com/activity/detail/26_anson_v"
+    },
+    {
+      "index": 6,
+      "title": "Anson Seabra",
+      "event_info": "2026/ 05/ 25（一）20:00 ; 實際時間請依現場公告為準。 ; 請務必於演出日前 LIVE NATION TAIWAN官方網站 及社群平台，詳讀確認演唱會入場時間流程及相關規範，以免損害自身權益。 ; 演出時間不等於 VIP 福利活動報到時間，請務必於演出日前至 LIVE NATION TAIWAN官方網站及社群平台詳讀活動入場時間及相關流程，以免損害權益。 ; DATE：2026/5/25 (MON) 20:00 ; 2026/01/19 (一) 11:00 ~ 2026/01/20 (二) 11:00 ; TIME: 2026/01/19 (MON) 11:00 ~ 2026/01/20 (TUE) 11:00 ; *更多節目及活動資訊: www.livenation.com.tw",
+      "location": "5 月 25 日 Legacy Taipei 溫暖開唱 ; 地點：Legacy Taipei",
+      "price": "票價：NT$ 1,980 / 990 (身障優惠票) ; 購買前請注意，本節目每張票券外加系統服務費200元。 ; PRICE：NT$ 1,980 ; *Please note before purchasing - there will be an additional NT$200 system service fee for each ticket.",
+      "sale_time": "DBS Mastercard Presale",
+      "url": "https://tixcraft.com/activity/detail/26_anson_c"
+    }
+  ]
+}

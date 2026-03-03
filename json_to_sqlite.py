@@ -6,7 +6,7 @@ import sqlite3
 from datetime import datetime
 from typing import Iterable, List, Optional
 
-DEFAULT_GLOBS = ["all_events_*.json", "演唱會資訊彙整_*.json"]
+DEFAULT_GLOBS = ["all_events_*.json", "演唱會資訊彙整_*.json", "simple_events_*.json", "quick_test_results_*.json"]
 
 
 def normalize_value(value: Optional[str]) -> Optional[str]:
