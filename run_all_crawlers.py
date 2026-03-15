@@ -16,9 +16,7 @@ if sys.stdout.encoding != 'utf-8':
 
 # 匯入爬蟲
 from crawlers import (
-    TicketComCrawler,
-    KKTIXCrawler,
-    TixCraftCrawler
+    TicketComCrawler
 )
 from crawlers.tier2_crawlers import IndievoxCrawler
 
@@ -31,10 +29,8 @@ def main():
     
     # 初始化爬蟲
     crawlers = [
-        # Tier 1 - 主流售票平台
+        # Tier 1 - 年代售票
         TicketComCrawler(),
-        KKTIXCrawler(),
-        TixCraftCrawler(),
         
         # Tier 2 - 獨立音樂平台
         IndievoxCrawler()

@@ -6,6 +6,7 @@
 import argparse
 import glob
 import os
+import re
 import sys
 import time
 import json
@@ -194,6 +195,298 @@ HTML 內容：
     except Exception as e:
         print(f"  ⚠ Gemini 解析失敗: {e}")
         return {}
+
+
+def clean_field(value: str, default: str = "未公布") -> str:
+    text = str(value or "").strip()
+    return text if text else default
+
+
+def extract_labeled_value(text: str, labels: List[str], max_len: int = 160) -> str:
+    if not text:
+        return ""
+    for label in labels:
+        pattern = rf"(?:{label})\s*[:：｜|]\s*([^\n\r]{{1,{max_len}}})"
+        match = re.search(pattern, text, re.I)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def extract_labeled_block(text: str, labels: List[str], stop_labels: List[str], max_lines: int = 4) -> str:
+    lines = [line.strip() for line in str(text or "").splitlines()]
+    for i, line in enumerate(lines):
+        for label in labels:
+            if re.match(rf"^{re.escape(label)}\s*(?:[:：｜|])?\s*$", line) or re.match(rf"^{re.escape(label)}\s*[:：｜|]\s*.+$", line):
+                value = re.sub(rf"^{re.escape(label)}\s*[:：｜|]?\s*", "", line).strip()
+                collected = [value] if value else []
+                for next_line in lines[i + 1:i + 1 + max_lines]:
+                    if any(re.match(rf"^{re.escape(sl)}\s*[:：｜|]?", next_line) for sl in stop_labels):
+                        break
+                    if next_line:
+                        collected.append(next_line)
+                return " ".join(x for x in collected if x).strip()
+    return ""
+
+
+def clean_artist_text(text: str) -> str:
+    value = clean_field(text, "未知藝人")
+    value = re.sub(r"[、,/\s]+$", "", value).strip()
+    return value or "未知藝人"
+
+
+def extract_sale_time(text: str) -> str:
+    labeled = extract_labeled_value(text, ["啟售時間", "售票時間", "開賣時間", "啟售", "開賣", "售票"], 80)
+    if labeled:
+        return labeled
+    match = re.search(r"(?:啟售|開賣|售票(?:時間)?)\s*[:：]?\s*(20\d{2}[\./年-]\d{1,2}[\./月-]\d{1,2}(?:日)?(?:\s*\d{1,2}:\d{2})?)", text, re.I)
+    if not match:
+        match = re.search(r"((?:\d{1,2}[\./]\d{1,2})(?:\s*[（\(][^）\)]*[）\)])?(?:\s*(?:上午|下午|中午|晚上))?\s*\d{1,2}:\d{2}[^\n\r]{0,20}(?:開賣|啟售|售票))", text, re.I)
+    return match.group(1).strip() if match else "未公布"
+
+
+def extract_price_text(text: str) -> str:
+    lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+    candidates = []
+
+    labeled = extract_labeled_value(text, ["票價", "Price", "PRICE"], 200)
+    if labeled:
+        candidates.append(labeled)
+
+    line_keywords = ["票價", "NT$", "免費", "預售", "現場票", "早鳥票", "學生票", "VIP", "VVIP", "元"]
+    for line in lines:
+        if any(keyword.lower() in line.lower() for keyword in line_keywords):
+            if re.fullmatch(r"[\d\s:./-]+", line):
+                continue
+            cleaned = re.sub(r"^(票價|Price|PRICE)\s*[:：]\s*", "", line, flags=re.I).strip()
+            if cleaned and cleaned not in candidates:
+                candidates.append(cleaned)
+
+    if candidates:
+        return "、".join(candidates[:3])[:200]
+
+    matches = re.findall(r"(?:NT\$\s*\d{2,5}(?:\s*[-~～]\s*NT\$?\s*\d{2,5})?(?:元)?)|免費", text, re.I)
+    cleaned = []
+    for m in matches:
+        value = m.strip()
+        if value not in cleaned:
+            cleaned.append(value)
+    return "、".join(cleaned[:5]) if cleaned else "未公布"
+
+
+def extract_ticket_types(text: str) -> str:
+    lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
+    labeled = extract_labeled_value(text, ["票種", "Ticket Type", "票券種類"], 200)
+    found = []
+    if labeled:
+        found.append(labeled)
+
+    keywords = [
+        "VIP", "VVIP", "GA", "早鳥票", "早鳥", "預售票", "預售", "全票", "一般票", "現場票", "現場",
+        "學生票", "雙人票", "身障票", "搖滾區", "站票", "座票", "自由入座", "對號座", "單人票",
+        "套票", "優惠套票", "預購票", "Door Ticket", "Pre-sale", "Accessibility Ticket",
+        "A區", "B區", "C區", "D區", "E區", "F區", "G區"
+    ]
+    for line in lines:
+        for keyword in keywords:
+            if keyword.lower() in line.lower() and keyword not in found:
+                found.append(keyword)
+
+    return "、".join(found[:10]) if found else "未公布"
+
+
+def extract_ticket_types_from_price(price_text: str) -> str:
+    if not price_text or price_text == "未公布":
+        return "未公布"
+    found = []
+    keywords = [
+        "VIP", "VVIP", "早鳥票", "早鳥", "預售單人票", "預售雙人套票", "預售票", "預售", "預購票",
+        "現場票", "現場", "學生票", "身障票", "單人票", "雙人票", "套票", "優惠套票", "全票", "一般票",
+        "Door Ticket", "Pre-sale", "Accessibility Ticket", "A區", "B區", "C區", "D區", "E區", "F區", "G區"
+    ]
+    for keyword in keywords:
+        if keyword.lower() in price_text.lower() and keyword not in found:
+            found.append(keyword)
+    if not found:
+        numbered_tiers = re.findall(r"\b\d{3,5}\b", price_text)
+        if len(set(numbered_tiers)) >= 2:
+            found.append("全票")
+    return "、".join(found[:10]) if found else "未公布"
+
+
+def build_event_record(source: str, artist: str, sale_time: str = "未公布", event_time: str = "未公布",
+                       venue: str = "未公布", price: str = "未公布", ticket_types: str = "未公布",
+                       url: str = "", crawl_time: str | None = None) -> Dict:
+    crawl_time = crawl_time or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    artist = clean_field(artist, "未知藝人")
+    sale_time = clean_field(sale_time)
+    event_time = clean_field(event_time)
+    venue = clean_field(venue)
+    price = clean_field(price)
+    ticket_types = clean_field(ticket_types)
+    url = clean_field(url, "")
+
+    return {
+        "來源網站": source,
+        "藝人": artist,
+        "搶票時間": sale_time,
+        "活動時間": event_time,
+        "活動地點": venue,
+        "票價": price,
+        "票種": ticket_types,
+        "網址": url,
+        "爬取時間": crawl_time,
+        # 相容舊欄位
+        "演出藝人": artist,
+        "演出時間": event_time,
+        "演出地點": venue,
+    }
+
+
+def _normalize_spaces(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "").replace("\u3000", " ")).strip()
+
+
+def _trim_by_markers(text: str, markers: List[str]) -> str:
+    value = str(text or "")
+    for marker in markers:
+        if marker in value:
+            value = value.split(marker)[0].strip()
+    return value
+
+
+def normalize_sale_time(value: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        return "未公布"
+    text = _trim_by_markers(text, ["主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
+    pattern = r"(20\d{2}[/\.-]\d{1,2}[/\.-]\d{1,2}(?:（[^）]*）|\([^\)]*\))?\s*\d{1,2}:\d{2}(?:\s*(?:開始販售|開賣|啟售))?)"
+    m = re.search(pattern, text)
+    if m:
+        return _normalize_spaces(m.group(1))
+    m = re.search(r"(20\d{2}[/\.-]\d{1,2}[/\.-]\d{1,2}(?:（[^）]*）|\([^\)]*\))?)", text)
+    if m:
+        return _normalize_spaces(m.group(1))
+    return text[:80]
+
+
+def normalize_event_time(value: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        return "未公布"
+    text = _trim_by_markers(text, ["主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
+    m = re.search(r"(20\d{2}[/\.-]\d{1,2}[/\.-]\d{1,2}(?:~\d{1,2})?(?:\s*\([^\)]*\)|\s*（[^）]*）)?(?:\s*\d{1,2}:\d{2}(?:\s*[ap]m)?(?:~\d{1,2}:\d{2}(?:\s*[ap]m)?)?)?)", text, re.I)
+    if m:
+        return _normalize_spaces(m.group(1))
+    return text[:100]
+
+
+def normalize_venue(value: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        return "未公布"
+    text = _trim_by_markers(text, ["演出者", "票價", "主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
+    return text[:120] if text else "未公布"
+
+
+def normalize_price(value: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        return "未公布"
+    text = _trim_by_markers(text, ["主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
+    text = re.sub(r"^票價\s*[:：]?\s*", "", text, flags=re.I)
+    if "免費" in text:
+        return "免費"
+
+    chunks = re.split(r"[\/|｜]|、", text)
+    useful = []
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if any(k in chunk for k in ["預售", "現場", "早鳥", "VIP", "VVIP", "學生", "身障", "套票", "單人", "雙人", "A區", "B區", "C區", "D區"]):
+            useful.append(chunk)
+            continue
+        if re.search(r"\d{2,5}", chunk):
+            useful.append(chunk)
+
+    if useful:
+        cleaned = " / ".join(dict.fromkeys(useful))
+        return cleaned[:200]
+
+    nums = re.findall(r"\d{2,5}", text)
+    if nums:
+        uniq = []
+        for num in nums:
+            if num not in uniq:
+                uniq.append(num)
+        return "、".join(uniq[:12])
+    return "未公布"
+
+
+def normalize_ticket_types(value: str, price: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        text = extract_ticket_types_from_price(price)
+    if not text or text == "未公布":
+        return "未公布"
+    tokens = re.split(r"[、,/|｜\s]+", text)
+    keep_keywords = ["VIP", "VVIP", "早鳥", "預售", "現場票", "現場", "學生票", "身障票", "單人票", "雙人票", "套票", "優惠套票", "全票", "一般票", "Pre-sale", "Door Ticket", "Accessibility Ticket", "A區", "B區", "C區", "D區", "E區", "F區", "G區"]
+    kept = []
+    for token in tokens:
+        token = token.strip()
+        if not token:
+            continue
+        matched = next((kw for kw in keep_keywords if kw.lower() in token.lower()), None)
+        if matched and matched not in kept:
+            kept.append(matched)
+    return "、".join(kept) if kept else "未公布"
+
+
+def normalize_record(record: Dict) -> Dict:
+    source = clean_field(record.get("來源網站"), "未知")
+    artist = clean_artist_text(record.get("藝人") or record.get("演出藝人") or "未知藝人")
+    sale_time = normalize_sale_time(record.get("搶票時間", "未公布"))
+    event_time = normalize_event_time(record.get("活動時間") or record.get("演出時間") or "未公布")
+    venue = normalize_venue(record.get("活動地點") or record.get("演出地點") or "未公布")
+    price = normalize_price(record.get("票價", "未公布"))
+    ticket_types = normalize_ticket_types(record.get("票種", "未公布"), price)
+    url = clean_field(record.get("網址"), "")
+    crawl_time = clean_field(record.get("爬取時間"), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    return build_event_record(
+        source=source,
+        artist=artist,
+        sale_time=sale_time,
+        event_time=event_time,
+        venue=venue,
+        price=price,
+        ticket_types=ticket_types,
+        url=url,
+        crawl_time=crawl_time,
+    )
+
+
+def is_valid_concert_record(record: Dict) -> bool:
+    artist = str(record.get("藝人") or record.get("演出藝人") or "").lower()
+    venue = str(record.get("活動地點") or record.get("演出地點") or "").lower()
+    source = str(record.get("來源網站") or "")
+
+    if not artist:
+        return False
+
+    blocked_keywords = [
+        "postcard kit", "商品", "旅遊", "出海一日遊", "自由行", "機加酒", "四日", "五日"
+    ]
+    if any(keyword in artist for keyword in blocked_keywords):
+        return False
+    if venue in ["商品", "周邊", "未分類"]:
+        return False
+
+    if source == "年代售票":
+        if any(keyword in artist for keyword in ["周邊", "商品", "套裝"]):
+            return False
+
+    return True
 
 
 class ConcertCrawler:
@@ -423,26 +716,330 @@ class TicketCrawler(ConcertCrawler):
         self.base_url = "https://ticket.com.tw"
         self.site_name = "年代售票"
 
+    def _extract_links_from_html(self, html: str) -> List[str]:
+        soup = BeautifulSoup(html, "lxml")
+        urls = set()
+        for a in soup.find_all("a", href=True):
+            href = (a.get("href") or "").strip()
+            if not href:
+                continue
+            if href.startswith("javascript:") or href.startswith("mailto:"):
+                continue
+            if href.startswith("/"):
+                full_url = self.base_url + href
+            elif href.startswith("http"):
+                full_url = href
+            else:
+                full_url = self.base_url + "/" + href.lstrip("./")
+
+            u = full_url.lower()
+            if "ticket.com.tw" not in u:
+                continue
+            if any(x in u for x in ["login", "member", "register", "search", "sitemap", "faq", "news"]):
+                continue
+            if "utk0108" in u or "type=4" in u:
+                continue
+            if "/utk01/" in u or "/utk13/" in u:
+                continue
+            if any(x in u for x in ["/utk02/", "/utk03/", "/dm/", "/show/", "/activity/"]):
+                urls.add(full_url)
+        return list(urls)
+
+    def _is_invalid_title(self, title: str) -> bool:
+        if not title:
+            return True
+        normalized = re.sub(r"\s+", "", title).lower()
+        bad_tokens = ["檢核錯誤清單", "檢核錯誤", "錯誤", "error", "notfound", "系統訊息"]
+        return any(token in normalized for token in bad_tokens)
+
+    def _extract_list_events(self, html: str) -> List[Dict]:
+        soup = BeautifulSoup(html, "lxml")
+        events = []
+        seen = set()
+        for a in soup.find_all("a", href=True):
+            href = (a.get("href") or "").strip()
+            if not href:
+                continue
+            if href.startswith("/"):
+                link = self.base_url + href
+            elif href.startswith("http"):
+                link = href
+            else:
+                link = self.base_url + "/" + href.lstrip("./")
+
+            low = link.lower()
+            if "ticket.com.tw" not in low:
+                continue
+            if "utk0108" in low or "type=4" in low:
+                continue
+            if "/utk01/" in low or "/utk13/" in low:
+                continue
+            if not any(x in low for x in ["/utk02/", "/utk03/", "/dm/", "/show/"]):
+                continue
+
+            title = a.get_text(" ", strip=True)
+            if not title or len(title) < 4:
+                continue
+            if any(bad in title.lower() for bad in ["首頁", "會員", "登入", "註冊", "客服"]) or self._is_invalid_title(title):
+                continue
+
+            parent = a.find_parent(["li", "div", "article", "tr", "section"]) or a
+            context_text = parent.get_text(" ", strip=True)
+            date = self._extract_date(context_text)
+
+            venue = "未公布"
+            venue_match = re.search(r"(?:地點|場地|Venue|Location)\s*[:：]\s*([^\n\r]{2,60})", context_text, re.I)
+            if venue_match:
+                venue = venue_match.group(1).strip()
+
+            key = (title.strip(), date.strip(), link.strip())
+            if key in seen:
+                continue
+            seen.add(key)
+            events.append(
+                build_event_record(
+                    source=self.site_name,
+                    artist=title,
+                    event_time=date or "未公布",
+                    venue=venue,
+                    url=link,
+                )
+            )
+
+        return events
+
+    def _extract_date(self, text: str) -> str:
+        if not text:
+            return "未公布"
+        patterns = [
+            r"(20\d{2}[\./-]\d{1,2}[\./-]\d{1,2}(?:\s*\d{1,2}:\d{2})?)",
+            r"(20\d{2}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}:\d{2})?)",
+            r"(\d{1,2}/\d{1,2}(?:\s*\d{1,2}:\d{2})?)",
+        ]
+        for pattern in patterns:
+            m = re.search(pattern, text)
+            if m:
+                return m.group(1).strip()
+        return "未公布"
+
+    def _extract_venue(self, soup: BeautifulSoup, full_text: str) -> str:
+        venue_selectors = [
+            ".venue", ".place", ".location", ".event-place", ".hall", "[class*='venue']", "[class*='place']"
+        ]
+        for sel in venue_selectors:
+            el = soup.select_one(sel)
+            if el:
+                value = el.get_text(" ", strip=True)
+                if value and len(value) >= 2:
+                    return value[:80]
+
+        match = re.search(r"(?:地點|場地|演出地點|Venue|Location)\s*[:：]\s*([^\n\r]{2,60})", full_text, re.I)
+        if match:
+            return match.group(1).strip()
+        return "未公布"
+
+    def _fetch_event_detail(self, url: str) -> Dict:
+        try:
+            detail_headers = {
+                **self.headers,
+                "Referer": f"{self.base_url}/Concert",
+                "Cache-Control": "no-cache",
+                "Pragma": "no-cache",
+            }
+            resp = requests.get(url, headers=detail_headers, timeout=self.timeout)
+            if resp.status_code != 200:
+                return {}
+            resp.encoding = resp.apparent_encoding or resp.encoding
+
+            if "403" in resp.text[:1200] and "錯誤" in resp.text[:1200]:
+                return {}
+
+            soup = BeautifulSoup(resp.text, "lxml")
+            full_text = soup.get_text("\n", strip=True)
+
+            title_el = soup.select_one("h1, h2, .title, .event-title, [class*='title']")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title and soup.title:
+                title = re.split(r"[-｜|]", soup.title.get_text(strip=True))[0].strip()
+
+            if self._is_invalid_title(title):
+                return {}
+
+            date = self._extract_date(full_text)
+            venue = self._extract_venue(soup, full_text)
+            sale_time = extract_sale_time(full_text)
+            price = "未公布"
+            ticket_types = extract_ticket_types(full_text)
+
+            table_rows = soup.select("table tr")
+            for tr in table_rows:
+                cells = [td.get_text(" ", strip=True) for td in tr.find_all(["th", "td"])]
+                if len(cells) >= 3 and any("Date and Time" in c or "活動日期" in c for c in cells):
+                    continue
+                if len(cells) >= 3:
+                    row_date, row_venue, row_price = cells[0].strip(), cells[1].strip(), cells[2].strip()
+                    if row_date and row_date != "未公布":
+                        date = row_date
+                    if row_venue and row_venue != "未公布":
+                        venue = row_venue
+                    if row_price and row_price != "未公布":
+                        price = row_price.replace(" 、 ", "、").replace(" , ", "、")
+                        ticket_types = extract_ticket_types_from_price(price)
+                        break
+                elif len(cells) == 2:
+                    label = cells[0].strip()
+                    value = cells[1].strip()
+                    if any(x in label for x in ["售票", "開賣", "啟售"]):
+                        sale_time = value or sale_time
+                    elif any(x in label for x in ["票種", "座位", "席次", "票券種類"]):
+                        if value and value != "未公布":
+                            ticket_types = value
+                    elif any(x in label for x in ["票價", "Price"]):
+                        if value and value != "未公布":
+                            price = value
+                            if ticket_types == "未公布":
+                                ticket_types = extract_ticket_types_from_price(price)
+
+            if price == "未公布":
+                price = extract_price_text(full_text)
+            if ticket_types == "未公布":
+                ticket_types = extract_ticket_types_from_price(price)
+            if ticket_types == "未公布":
+                ticket_types = extract_ticket_types(full_text)
+            if ticket_types == "未公布" and price != "未公布" and re.search(r"\b\d{3,5}\b", price):
+                ticket_types = "全票"
+
+            if not any([title, date != "未公布", venue != "未公布"]):
+                return {}
+            return build_event_record(
+                source=self.site_name,
+                artist=title or "未知藝人",
+                sale_time=sale_time,
+                event_time=date,
+                venue=venue,
+                price=price,
+                ticket_types=ticket_types,
+                url=url,
+            )
+        except Exception:
+            return {}
+
+    def _fetch_event_detail_playwright(self, url: str, state_file: str = "ticket_state.json", force_headful: bool = False) -> Dict:
+        try:
+            with sync_playwright() as p:
+                browser = launch_browser_with_fallback(p, force_headful=force_headful)
+                context = browser.new_context(storage_state=load_state_if_exists(state_file))
+                page = context.new_page()
+                page.goto(url, timeout=self.timeout * 1000, wait_until="domcontentloaded")
+                try:
+                    page.wait_for_load_state("networkidle", timeout=self.timeout * 1000)
+                except Exception:
+                    page.wait_for_timeout(min(3000, self.timeout * 1000))
+                html = page.content()
+                context.storage_state(path=state_file)
+                browser.close()
+
+            soup = BeautifulSoup(html, "lxml")
+            full_text = soup.get_text("\n", strip=True)
+
+            title_el = soup.select_one("h1, h2, .title, .event-title, [class*='title']")
+            title = title_el.get_text(" ", strip=True) if title_el else ""
+            if not title and soup.title:
+                title = re.split(r"[-｜|]", soup.title.get_text(strip=True))[0].strip()
+            if self._is_invalid_title(title):
+                return {}
+
+            date = self._extract_date(full_text)
+            venue = self._extract_venue(soup, full_text)
+            sale_time = extract_sale_time(full_text)
+            price = extract_price_text(full_text)
+            ticket_types = extract_ticket_types(full_text)
+            if ticket_types == "未公布":
+                ticket_types = extract_ticket_types_from_price(price)
+
+            if not any([title, date != "未公布", venue != "未公布"]):
+                return {}
+            return build_event_record(
+                source=self.site_name,
+                artist=title or "未知藝人",
+                sale_time=sale_time,
+                event_time=date,
+                venue=venue,
+                price=price,
+                ticket_types=ticket_types,
+                url=url,
+            )
+        except Exception:
+            return {}
+
+    def _fallback_from_tier1_crawler(self) -> List[dict]:
+        try:
+            from crawlers.tier1_crawlers import TicketComCrawler
+
+            print("  ℹ 啟用進階 TicketComCrawler 補抓...")
+            crawler = TicketComCrawler()
+            events = crawler.run() or []
+
+            normalized = []
+            for event in events:
+                title = (event.get("title") or event.get("artist") or "").strip()
+                date = (event.get("date") or "未公布").strip()
+                venue = (event.get("location") or "未公布").strip()
+                url = (event.get("url") or self.base_url).strip()
+
+                if not title or self._is_invalid_title(title):
+                    continue
+                if any(x in title for x in ["搜尋", "search", "檢核", "錯誤"]):
+                    continue
+                if "UTK0101_06" in url:
+                    continue
+                detail = self._fetch_event_detail(url)
+                if detail:
+                    normalized.append(detail)
+                    continue
+                if venue in ["講座", "座", "活動", "未取得", "未公布"]:
+                    venue = "未公布"
+                normalized.append(
+                    build_event_record(
+                        source=self.site_name,
+                        artist=title,
+                        event_time=date or "未公布",
+                        venue=venue or "未公布",
+                        price="未公布",
+                        ticket_types="未公布",
+                        url=url,
+                    )
+                )
+
+            return normalized
+        except Exception as e:
+            print(f"  ⚠ 進階補抓失敗: {e}")
+            return []
+
     def crawl(self) -> List[dict]:
         print(f"\n[等級1] 開始爬取 {self.site_name}...")
         self.concerts = []
+        state_file = "ticket_state.json"
+        headless_env = os.getenv("PLAYWRIGHT_HEADLESS", "1")
+        force_headful = headless_env.strip() == "0"
 
         list_urls = [
+            f"{self.base_url}",
             f"{self.base_url}/Concert",
             f"{self.base_url}/category/Concert",
             f"{self.base_url}/search?type=concert",
+            f"{self.base_url}/dm.html",
         ]
-        html = None
+        html_pages = []
         for lu in list_urls:
             try:
                 resp = requests.get(lu, headers=self.headers, timeout=self.timeout)
                 if resp.status_code == 200 and "html" in resp.headers.get("Content-Type", "").lower():
-                    html = resp.text
-                    break
+                    html_pages.append(resp.text)
             except Exception:
                 continue
 
-        if not html:
+        if not html_pages:
             try:
                 with sync_playwright() as p:
                     browser = launch_browser_with_fallback(p, force_headful=force_headful)
@@ -453,59 +1050,68 @@ class TicketCrawler(ConcertCrawler):
                         page.wait_for_load_state("networkidle", timeout=self.timeout * 1000)
                     except Exception:
                         page.wait_for_timeout(min(5000, self.timeout * 1000))
-                    html = page.content()
+                    html_pages.append(page.content())
                     context.storage_state(path=state_file)
                     browser.close()
             except Exception as e:
                 print(f"✗ 無法取得年代售票列表頁: {e}")
                 return self._fallback_placeholder()
 
-        soup = BeautifulSoup(html, "lxml")
-        candidates = []
-        candidates.extend(soup.select("div.concert-item, li.concert-item"))
-        candidates.extend(soup.select("div.item, li.item"))
-        candidates.extend(soup.select("div.event, li.event"))
-        candidates = candidates or soup.select("a[href*='/activity/']")
+        event_urls = set()
+        list_events = []
+        for html in html_pages:
+            event_urls.update(self._extract_links_from_html(html))
+            list_events.extend(self._extract_list_events(html))
 
-        def norm(el):
-            return el.get_text(strip=True) if el else ""
-
-        for c in candidates:
-            try:
-                a = c.find("a") or (c if c.name == "a" else None)
-                link = a.get("href") if a else ""
-                if link and not link.startswith("http"):
-                    link = self.base_url + link
-                title = norm(c.find("h4")) or norm(c.find("h3")) or norm(c.find("h2"))
-                date = norm(c.select_one(".date")) or norm(c.select_one(".time"))
-                venue = norm(c.select_one(".place")) or norm(c.select_one(".venue"))
-
-                if link and (not title or not date or not venue):
-                    try:
-                        dresp = requests.get(link, headers=self.headers, timeout=self.timeout)
-                        if dresp.status_code == 200:
-                            dsoup = BeautifulSoup(dresp.text, "lxml")
-                            title = title or norm(dsoup.select_one("h1, h2.page-title"))
-                            date = date or norm(dsoup.select_one(".date, .event-date, time"))
-                            venue = venue or norm(dsoup.select_one(".place, .venue, .location"))
-                    except Exception:
-                        pass
-
-                if not any([title, date, venue, link]):
-                    continue
-                self.concerts.append(
-                    {
-                        "來源網站": self.site_name,
-                        "演出藝人": title or "未知藝人",
-                        "演出時間": date or "未公布",
-                        "演出地點": venue or "未公布",
-                        "網址": link or self.base_url,
-                        "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                )
-            except Exception as e:
-                print(f"  ⚠ 解析單筆資料時發生錯誤: {e}")
+        url_to_item = {}
+        for item in list_events:
+            link = item.get("網址", "").strip()
+            if not link:
                 continue
+            url_to_item[link] = item
+
+        if not event_urls:
+            if list_events:
+                self.concerts = list_events[:80]
+                print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
+                return self.concerts
+            print("  ⚠ 年代售票列表沒有解析到有效活動連結")
+            advanced_events = self._fallback_from_tier1_crawler()
+            if advanced_events:
+                self.concerts = advanced_events
+                print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
+                return self.concerts
+            return self._fallback_placeholder()
+
+        seen_keys = set()
+        for link in list(event_urls)[:80]:
+            item = self._fetch_event_detail(link)
+            if (not item) or str(item.get("票種", "未公布")).strip() in ["", "未公布"]:
+                item_pw = self._fetch_event_detail_playwright(link, state_file=state_file, force_headful=force_headful)
+                if item_pw:
+                    item = item_pw
+            if not item and link in url_to_item:
+                item = url_to_item[link]
+            if not item:
+                continue
+            key = (
+                item.get("演出藝人", "").strip(),
+                item.get("演出時間", "").strip(),
+                item.get("演出地點", "").strip(),
+                item.get("網址", "").strip(),
+            )
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            self.concerts.append(item)
+
+        if not self.concerts and list_events:
+            self.concerts = list_events[:80]
+
+        if not self.concerts:
+            advanced_events = self._fallback_from_tier1_crawler()
+            if advanced_events:
+                self.concerts = advanced_events
 
         print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
         if not self.concerts:
@@ -514,14 +1120,11 @@ class TicketCrawler(ConcertCrawler):
 
     def _fallback_placeholder(self) -> List[dict]:
         self.concerts.append(
-            {
-                "來源網站": self.site_name,
-                "演出藝人": "（待公佈）",
-                "演出時間": "未公布",
-                "演出地點": "未公布",
-                "網址": self.base_url + "/Concert",
-                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
+            build_event_record(
+                source=self.site_name,
+                artist="（待公佈）",
+                url=self.base_url + "/Concert",
+            )
         )
         return self.concerts
 
@@ -534,56 +1137,185 @@ class IndievoxCrawler(ConcertCrawler):
         self.base_url = "https://www.indievox.com"
         self.site_name = "iNDIEVOX"
 
+    def _get_list_html(self) -> str:
+        list_urls = [
+            f"{self.base_url}/activity/list",
+            f"{self.base_url}/activity/list?type=card&startDate=2025/01/01&endDate=2026/12/31",
+            f"{self.base_url}/activity/list?type=table&startDate=2025/01/01&endDate=2026/12/31",
+        ]
+
+        html_parts = []
+        for list_url in list_urls:
+            try:
+                resp = requests.get(list_url, headers=self.headers, timeout=self.timeout)
+                if resp.status_code == 200:
+                    resp.encoding = resp.apparent_encoding or resp.encoding
+                    html_parts.append(resp.text)
+            except Exception:
+                continue
+
+        if html_parts:
+            return "\n".join(html_parts)
+
+        try:
+            with sync_playwright() as p:
+                browser = launch_browser_with_fallback(p)
+                page = browser.new_page()
+                page.goto(f"{self.base_url}/activity/list?type=table&startDate=2025/01/01&endDate=2026/12/31", timeout=self.timeout * 1000, wait_until="domcontentloaded")
+                page.wait_for_timeout(2500)
+                for _ in range(8):
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    page.wait_for_timeout(1200)
+                html = page.content()
+                browser.close()
+                return html
+        except Exception:
+            return ""
+
+    def _extract_date_from_text(self, text: str) -> str:
+        if not text:
+            return "未公布"
+        patterns = [
+            r"(20\d{2}[\./-]\d{1,2}[\./-]\d{1,2}(?:\s*\d{1,2}:\d{2})?)",
+            r"(20\d{2}年\d{1,2}月\d{1,2}日(?:\s*\d{1,2}:\d{2})?)",
+            r"(\d{1,2}/\d{1,2}(?:\s*\d{1,2}:\d{2})?)",
+        ]
+        for pattern in patterns:
+            m = re.search(pattern, text)
+            if m:
+                return m.group(1).strip()
+        return "未公布"
+
+    def _infer_venue(self, text: str) -> str:
+        if not text:
+            return "未公布"
+
+        def _clean(raw: str) -> str:
+            value = (raw or "").strip()
+            for sep in ["演出者", "票價", "※", "注意事項", "\n"]:
+                if sep in value:
+                    value = value.split(sep)[0].strip()
+            return value[:90] if value else "未公布"
+
+        label_match = re.search(r"(?:地點|場地|演出地點|Venue|Location)\s*[:：]\s*([^\n\r]{2,80})", text, re.I)
+        if label_match:
+            return _clean(label_match.group(1))
+
+        venue_keywords = [
+            "Legacy Taipei", "Legacy Taichung", "Legacy", "THE WALL", "Zepp", "SUB", "河岸留言",
+            "小地方展演空間", "小巨蛋", "流行音樂中心", "女巫店", "Revolver", "PIPE"
+        ]
+        lowered = text.lower()
+        for v in venue_keywords:
+            if v.lower() in lowered:
+                return _clean(v)
+        return "未公布"
+
     def crawl(self) -> List[dict]:
         print(f"\n[等級1] 開始爬取 {self.site_name}...")
         self.concerts = []
 
         try:
-            url = f"{self.base_url}/activity/list"
-            resp = requests.get(url, headers=self.headers, timeout=self.timeout)
-            if resp.status_code != 200:
+            html = self._get_list_html()
+            if not html:
                 return self._fallback_placeholder()
 
-            # 先嘗試非 AI 解析：直接找活動列表的 anchor
-            soup = BeautifulSoup(resp.text, "lxml")
-            links = soup.select('a[href*="/activity/"]')
-            for a in links[:12]:
+            soup = BeautifulSoup(html, "lxml")
+            links = soup.select('a[href*="/activity/detail/"]')
+            if not links:
+                links = soup.select('a[href*="/activity/"]')
+
+            regex_links = sorted(set(re.findall(r'/activity/detail/[A-Za-z0-9_]+', html)))
+            for href in regex_links:
+                class _LinkObj:
+                    def __init__(self, h):
+                        self._h = h
+                    def get(self, key):
+                        return self._h if key == "href" else ""
+                    def get_text(self, *args, **kwargs):
+                        return ""
+                    @property
+                    def parent(self):
+                        return None
+                    def find_parent(self, *args, **kwargs):
+                        return None
+                links.append(_LinkObj(href))
+
+            seen_urls = set()
+            seen_keys = set()
+
+            for a in links:
                 link = a.get("href") or ""
                 if link and not link.startswith("http"):
                     link = self.base_url + link
-                title = a.get_text(strip=True)
-                date = venue = ""
+                if not link or link in seen_urls:
+                    continue
+                seen_urls.add(link)
+
+                title = a.get_text(" ", strip=True)
+                date = ""
+                venue = ""
+
                 # 嘗試從附近節點取日期/地點
                 parent = a.find_parent(["div", "li", "article"]) or a.parent
                 if parent:
-                    dt = parent.select_one('.date, .time')
-                    vn = parent.select_one('.venue, .location, .place')
-                    date = (dt.get_text(strip=True) if dt else "")
-                    venue = (vn.get_text(strip=True) if vn else "")
+                    dt = parent.select_one('.date, .time, [class*="date"], [class*="time"]')
+                    vn = parent.select_one('.venue, .location, .place, [class*="venue"], [class*="place"]')
+                    date = dt.get_text(" ", strip=True) if dt else ""
+                    venue = vn.get_text(" ", strip=True) if vn else ""
 
-                self.concerts.append({
-                    "來源網站": self.site_name,
-                    "演出藝人": title or "未知藝人",
-                    "演出時間": date or "未公布",
-                    "演出地點": venue or "未公布",
-                    "網址": link or self.base_url,
-                    "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                })
+                detail = self._extract_detail(link)
+                merged_title = detail.get('title') or title or "未知藝人"
+                merged_artist = clean_artist_text(detail.get('artist') or merged_title)
+                merged_date = detail.get('date') or date
+                merged_venue = detail.get('venue') or venue
+                merged_sale_time = detail.get('sale_time') or "未公布"
+                merged_price = detail.get('price') or "未公布"
+                merged_ticket_types = detail.get('ticket_types') or "未公布"
+
+                if merged_date in ["", "未公布"]:
+                    merged_date = self._extract_date_from_text((detail.get("raw_text") or "") + " " + (date or ""))
+                if merged_venue in ["", "未公布"]:
+                    merged_venue = self._infer_venue((detail.get("raw_text") or "") + " " + (merged_title or "") + " " + (venue or ""))
+
+                item = build_event_record(
+                    source=self.site_name,
+                    artist=merged_artist,
+                    sale_time=merged_sale_time,
+                    event_time=merged_date or "未公布",
+                    venue=merged_venue or "未公布",
+                    price=merged_price,
+                    ticket_types=merged_ticket_types,
+                    url=link,
+                )
+
+                key = (
+                    item.get("演出藝人", "").strip(),
+                    item.get("演出時間", "").strip(),
+                    item.get("演出地點", "").strip(),
+                    item.get("網址", "").strip(),
+                )
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                self.concerts.append(item)
+
+                if len(self.concerts) >= 120:
+                    break
 
             # 若清單仍為空，最後再用 AI 嘗試補充
             if not self.concerts:
-                concerts_from_ai = parse_html_with_gemini(resp.text, self.site_name)
+                concerts_from_ai = parse_html_with_gemini(html, self.site_name)
                 for concert in concerts_from_ai:
                     if concert.get('演出藝人'):
                         self.concerts.append(
-                            {
-                                "來源網站": self.site_name,
-                                "演出藝人": concert.get('演出藝人', '未知藝人'),
-                                "演出時間": concert.get('演出時間', '未公布'),
-                                "演出地點": concert.get('演出地點', '未公布'),
-                                "網址": concert.get('網址', self.base_url),
-                                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            }
+                            build_event_record(
+                                source=self.site_name,
+                                artist=concert.get('演出藝人', '未知藝人'),
+                                event_time=concert.get('演出時間', '未公布'),
+                                venue=concert.get('演出地點', '未公布'),
+                                url=concert.get('網址', self.base_url),
+                            )
                         )
 
             print(f"✓ {self.site_name} 爬取完成，共 {len(self.concerts)} 筆資料")
@@ -595,19 +1327,93 @@ class IndievoxCrawler(ConcertCrawler):
         return self.concerts
 
     def _extract_detail(self, detail_url: str) -> dict:
-        """從詳細頁面抽取完整資訊（標題、日期、場地）"""
+        """從詳細頁面抽取完整資訊（標題、時間、場地、票價、票種）"""
         try:
-            resp = requests.get(detail_url, headers=self.headers, timeout=10)
+            resp = requests.get(detail_url, headers=self.headers, timeout=self.timeout)
             if resp.status_code != 200:
                 return {}
             
             soup = BeautifulSoup(resp.text, "lxml")
             info = {}
+            raw_text = soup.get_text("\n", strip=True)
+            stop_labels = ['演出日期及時間', '活動日期及時間', '演出時間', '活動時間', '演出地點', '活動地點', '場地', '演出者', '票價', '售票時間', '開賣時間', '啟售時間', '主辦', '備註', '注意事項']
+
+            for script in soup.select('script[type="application/ld+json"]'):
+                script_text = (script.string or script.get_text() or "").strip()
+                if not script_text:
+                    continue
+                try:
+                    payload = json.loads(script_text)
+                except Exception:
+                    continue
+
+                nodes = payload if isinstance(payload, list) else [payload]
+                for node in nodes:
+                    if not isinstance(node, dict):
+                        continue
+                    start_date = str(node.get('startDate') or "").strip()
+                    if start_date and not info.get('date'):
+                        info['date'] = start_date.replace('T', ' ')
+
+                    location = node.get('location')
+                    if isinstance(location, dict):
+                        location_name = str(location.get('name') or "").strip()
+                        address = location.get('address')
+                        if isinstance(address, dict):
+                            addr = str(address.get('streetAddress') or address.get('addressLocality') or "").strip()
+                            if location_name and addr:
+                                info['venue'] = f"{location_name}（{addr}）"
+                            elif location_name:
+                                info['venue'] = location_name
+                            elif addr:
+                                info['venue'] = addr
+                        elif location_name:
+                            info['venue'] = location_name
+
+                    offers = node.get('offers')
+                    offer_nodes = offers if isinstance(offers, list) else ([offers] if isinstance(offers, dict) else [])
+                    offer_texts = []
+                    for offer in offer_nodes:
+                        if not isinstance(offer, dict):
+                            continue
+                        price_value = str(offer.get('price') or "").strip()
+                        currency = str(offer.get('priceCurrency') or "").strip()
+                        category = str(offer.get('category') or "").strip()
+                        availability = str(offer.get('availability') or "").strip()
+                        text_parts = [x for x in [category, f"{currency}{price_value}" if price_value else "", availability] if x]
+                        if text_parts:
+                            offer_texts.append(" ".join(text_parts))
+                    if offer_texts and not info.get('price'):
+                        info['price'] = " / ".join(dict.fromkeys(offer_texts))[:220]
             
             # 抓取標題
             title_el = soup.select_one('h1, .page-title, h2.title')
             if title_el:
                 info['title'] = title_el.get_text(strip=True)
+            info['artist'] = extract_labeled_block(raw_text, ['演出者'], stop_labels, max_lines=3) or info.get('title', '')
+            info['date'] = extract_labeled_block(raw_text, ['演出日期及時間', '活動日期及時間', '演出時間', '活動時間'], stop_labels, max_lines=2) or info.get('date', '')
+            info['venue'] = extract_labeled_block(raw_text, ['演出地點', '活動地點', '場地'], stop_labels, max_lines=2) or info.get('venue', '')
+            info['price'] = extract_labeled_block(raw_text, ['票價'], stop_labels, max_lines=3) or info.get('price', '')
+            info['sale_time'] = extract_labeled_block(raw_text, ['售票時間', '開賣時間', '啟售時間'], stop_labels, max_lines=3) or info.get('sale_time', '')
+
+            if not info.get('sale_time'):
+                info['sale_time'] = extract_labeled_value(raw_text, ['售票時間', '開賣時間', '啟售時間', '開始販售'])
+            if not info.get('sale_time'):
+                sale_match = re.search(r"((?:\d{1,2}[\./]\d{1,2})(?:\s*[（\(][^）\)]*[）\)])?(?:\s*(?:上午|下午|中午|晚上))?\s*\d{1,2}:\d{2}[^\n\r]{0,20}(?:開賣|啟售|售票))", raw_text, re.I)
+                if sale_match:
+                    info['sale_time'] = sale_match.group(1).strip()
+            if not info.get('venue'):
+                info['venue'] = extract_labeled_value(raw_text, ['演出地點', '活動地點', '場地', 'Venue', 'Location'])
+            if not info.get('venue'):
+                venue_match = re.search(r"(?:地點|場地|Venue|Location)\s*[:：｜|]\s*([^\n\r]{2,120})", raw_text, re.I)
+                if venue_match:
+                    info['venue'] = venue_match.group(1).strip()
+            if not info.get('price'):
+                info['price'] = extract_labeled_value(raw_text, ['票價', 'Price', '一般預售票', '預購票'])
+            if not info.get('price'):
+                price_match = re.search(r"(?:票價|Price)\s*[:：｜|]\s*([^\n\r]{2,220})", raw_text, re.I)
+                if price_match:
+                    info['price'] = price_match.group(1).strip()
             
             # 從表格或資訊區域抓取日期和地點
             # 找所有 tr 行
@@ -622,9 +1428,21 @@ class IndievoxCrawler(ConcertCrawler):
                     if any(kw in label for kw in ['時間', 'Time', '日期', 'Date']):
                         if value and value != '未公布':
                             info['date'] = value
+                    elif any(kw in label for kw in ['演出者', 'Artist']):
+                        if value and value != '未公布':
+                            info['artist'] = value
+                    elif any(kw in label for kw in ['啟售', '開賣', '售票']):
+                        if value and value != '未公布':
+                            info['sale_time'] = value
                     elif any(kw in label for kw in ['地點', 'Venue', '場地', 'Location']):
                         if value and value != '未公布':
                             info['venue'] = value
+                    elif any(kw in label for kw in ['票價', 'Price']):
+                        if value and value != '未公布':
+                            info['price'] = value
+                    elif any(kw in label for kw in ['票種', 'Ticket Type']):
+                        if value and value != '未公布':
+                            info['ticket_types'] = value
             
             # 如果沒找到，用其他方法
             if 'date' not in info:
@@ -633,6 +1451,11 @@ class IndievoxCrawler(ConcertCrawler):
                     date_text = date_el.get_text(strip=True)
                     if date_text:
                         info['date'] = date_text
+                else:
+                    info['date'] = self._extract_date_from_text(soup.get_text(" ", strip=True))
+
+            if 'sale_time' not in info:
+                info['sale_time'] = extract_sale_time(raw_text)
             
             if 'venue' not in info:
                 venue_el = soup.select_one('.venue, .location, .place')
@@ -640,21 +1463,36 @@ class IndievoxCrawler(ConcertCrawler):
                     venue_text = venue_el.get_text(strip=True)
                     if venue_text and venue_text != '未公布':
                         info['venue'] = venue_text
+                else:
+                    venue_alt = soup.select_one('[class*="venue"], [class*="location"], [class*="place"], [itemprop="location"]')
+                    if venue_alt:
+                        venue_text = venue_alt.get_text(" ", strip=True)
+                        if venue_text and venue_text != '未公布':
+                            info['venue'] = venue_text
+
+            if 'price' not in info:
+                info['price'] = extract_price_text(raw_text)
+
+            if 'ticket_types' not in info:
+                info['ticket_types'] = extract_ticket_types_from_price(info.get('price', ''))
+                if info['ticket_types'] == '未公布':
+                    info['ticket_types'] = extract_ticket_types(raw_text)
+
+            info['artist'] = clean_artist_text(info.get('artist', ''))
+
+            info['raw_text'] = soup.get_text(" ", strip=True)[:2000]
             
             return info
-        except Exception as e:
+        except Exception:
             return {}
 
     def _fallback_placeholder(self) -> List[dict]:
         self.concerts.append(
-            {
-                "來源網站": self.site_name,
-                "演出藝人": "（待公佈）",
-                "演出時間": "未公布",
-                "演出地點": "未公布",
-                "網址": self.base_url + "/activity/list",
-                "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
+            build_event_record(
+                source=self.site_name,
+                artist="（待公佈）",
+                url=self.base_url + "/activity/list",
+            )
         )
         return self.concerts
 
@@ -785,13 +1623,10 @@ class ConcertCrawlerManager:
 
     def __init__(self, per_site_timeout: int = 10):
         self.all_concerts: List[dict] = []
-        # 等級定義：
-        # 1 = 主流售票：拓元/年代/KKTIX（核心流量）
-        # 2 = 次主流與獨立：Indievox、Accupass 等
-        # 3 = 補充/佔位：博客來（待開發）
-        self.level1_crawlers = [KKTIXCrawler(timeout=per_site_timeout), TicketCrawler(timeout=per_site_timeout)]
-        self.level2_crawlers = [IndievoxCrawler(timeout=per_site_timeout), AccupassCrawler(timeout=per_site_timeout)]
-        self.level3_crawlers = [BooksTicketCrawler(timeout=per_site_timeout)]
+        # 目前僅保留：年代售票、iNDIEVOX
+        self.level1_crawlers = [TicketCrawler(timeout=per_site_timeout)]
+        self.level2_crawlers = [IndievoxCrawler(timeout=per_site_timeout)]
+        self.level3_crawlers = []
 
     def _run_crawlers(self, crawlers: List[ConcertCrawler], delay: int) -> None:
         for crawler in crawlers:
@@ -818,9 +1653,15 @@ class ConcertCrawlerManager:
         return self.all_concerts
 
     def save_results(self, fmt: str = "excel") -> str:
-        columns = ["來源網站", "演出藝人", "演出時間", "演出地點", "網址", "爬取時間"]
-        df = pd.DataFrame(self.all_concerts, columns=columns)
-        df = df.drop_duplicates(subset=["演出藝人", "演出時間", "演出地點"])
+        columns = [
+            "來源網站", "藝人", "搶票時間", "活動時間", "活動地點", "票價", "票種",
+            "網址", "爬取時間", "演出藝人", "演出時間", "演出地點"
+        ]
+        normalized_records = [normalize_record(record) for record in self.all_concerts]
+        normalized_records = [record for record in normalized_records if is_valid_concert_record(record)]
+        self.all_concerts = normalized_records
+        df = pd.DataFrame(normalized_records, columns=columns)
+        df = df.drop_duplicates(subset=["來源網站", "網址", "演出藝人", "演出時間", "演出地點"])
 
         for old in glob.glob("演唱會資訊彙整_*.xlsx"):
             try:
@@ -853,7 +1694,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         default="all",
-        help="等級：1=主流(拓元/年代/KKTIX)、2=次主流(Indievox/Accupass)、3=補充、all=全部"
+        help="等級：1=年代售票、2=iNDIEVOX、all=全部"
     )
     parser.add_argument("--format", default="excel", choices=["excel", "json", "both"], help="輸出格式")
     parser.add_argument("--delay", default=1, type=int, help="爬蟲間延遲秒數")
