@@ -1,0 +1,44 @@
+erDiagram
+    er_users {
+        BIGINT user_id_pk PK
+        VARCHAR app_user_uuid UK
+        VARCHAR username UK
+        VARCHAR email
+        TEXT password_hash
+        VARCHAR created_at_text
+    }
+
+    er_artists {
+        BIGINT artist_id_pk PK
+        VARCHAR artist_name UK
+    }
+
+    er_venues {
+        BIGINT venue_id_pk PK
+        VARCHAR venue_name
+        VARCHAR address
+    }
+
+    er_platforms {
+        BIGINT platform_id_pk PK
+        VARCHAR platform_name UK
+    }
+
+    er_events {
+        BIGINT event_id_pk PK
+        BIGINT artist_id_fk FK
+        BIGINT venue_id_fk FK
+        BIGINT platform_id_fk FK
+        VARCHAR event_name
+        TEXT event_time
+        TEXT sale_time
+        TEXT price
+        TEXT ticket_type
+        TEXT event_link
+        TEXT crawl_time
+        VARCHAR source_file
+    }
+
+    er_artists ||--o{ er_events : "artist_id_pk -> artist_id_fk"
+    er_venues ||--o{ er_events : "venue_id_pk -> venue_id_fk"
+    er_platforms ||--o{ er_events : "platform_id_pk -> platform_id_fk"

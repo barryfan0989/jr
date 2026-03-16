@@ -314,24 +314,64 @@ def extract_ticket_types_from_price(price_text: str) -> str:
     return "、".join(found[:10]) if found else "未公布"
 
 
+def extract_address_from_text(text: str) -> str:
+    raw = str(text or "")
+    labeled = extract_labeled_value(raw, ["地址", "Address"], 160)
+    if labeled and not _is_fake_address(labeled):
+        return labeled
+    m = re.search(r"[（\(]([^（）\(\)]{4,120}(?:市|縣)[^（）\(\)]{0,80})[）\)]", raw)
+    if m:
+        candidate = m.group(1).strip()
+        if not _is_fake_address(candidate):
+            return candidate
+    m = re.search(r"((?:台|臺)[^\s，。]{0,20}(?:市|縣)[^\s，。]{0,40}(?:路|街|大道|段|巷|弄)[^\s，。]{0,20}號?)", raw)
+    if m:
+        candidate = m.group(1).strip()
+        if not _is_fake_address(candidate):
+            return candidate
+    return ""
+
+
+def split_venue_and_address(venue_text: str, extra_text: str = "") -> tuple[str, str]:
+    venue_raw = clean_field(venue_text, "未公布")
+    if venue_raw == "未公布":
+        addr = extract_address_from_text(extra_text)
+        return venue_raw, (addr if addr and not _is_fake_address(addr) else "未公布")
+
+    m = re.match(r"^(.*?)\s*[（\(]\s*([^）\)]{4,160})\s*[）\)]\s*$", venue_raw)
+    if m:
+        venue = clean_field(m.group(1), "未公布")
+        addr_candidate = clean_field(m.group(2), "未公布")
+        addr = addr_candidate if not _is_fake_address(addr_candidate) else "未公布"
+        return venue, addr
+
+    addr = extract_address_from_text(extra_text)
+    return venue_raw, (clean_field(addr) if addr and not _is_fake_address(addr) else "未公布")
+
+
 def build_event_record(source: str, artist: str, sale_time: str = "未公布", event_time: str = "未公布",
                        venue: str = "未公布", price: str = "未公布", ticket_types: str = "未公布",
-                       url: str = "", crawl_time: str | None = None) -> Dict:
+                       url: str = "", crawl_time: str | None = None,
+                       event_name: str | None = None, address: str = "未公布") -> Dict:
     crawl_time = crawl_time or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     artist = clean_field(artist, "未知藝人")
+    event_name = clean_field(event_name or artist)
     sale_time = clean_field(sale_time)
     event_time = clean_field(event_time)
     venue = clean_field(venue)
+    address = clean_field(address)
     price = clean_field(price)
     ticket_types = clean_field(ticket_types)
     url = clean_field(url, "")
 
     return {
         "來源網站": source,
+        "活動名稱": event_name,
         "藝人": artist,
         "搶票時間": sale_time,
         "活動時間": event_time,
         "活動地點": venue,
+        "活動地址": address,
         "票價": price,
         "票種": ticket_types,
         "網址": url,
@@ -387,6 +427,26 @@ def normalize_venue(value: str) -> str:
         return "未公布"
     text = _trim_by_markers(text, ["演出者", "票價", "主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
     return text[:120] if text else "未公布"
+
+
+def _is_fake_address(addr: str) -> bool:
+    """判斷是否為已知的頁尾/公司固定地址，不代表實際活動場地。"""
+    if not addr:
+        return True
+    for fake in _KNOWN_FAKE_ADDRESSES:
+        if fake in addr:
+            return True
+    return False
+
+
+def normalize_address(value: str) -> str:
+    text = _normalize_spaces(value)
+    if not text or text == "未公布":
+        return "未公布"
+    if _is_fake_address(text):
+        return "未提供"
+    text = _trim_by_markers(text, ["演出者", "票價", "主辦", "備註", "注意事項", "※", "⦿", "| iNDIEVOX"])
+    return text[:160] if text else "未公布"
 
 
 def normalize_price(value: str) -> str:
@@ -445,10 +505,13 @@ def normalize_ticket_types(value: str, price: str) -> str:
 
 def normalize_record(record: Dict) -> Dict:
     source = clean_field(record.get("來源網站"), "未知")
+    event_name = clean_field(record.get("活動名稱") or record.get("藝人") or record.get("演出藝人"), "未公布")
     artist = clean_artist_text(record.get("藝人") or record.get("演出藝人") or "未知藝人")
     sale_time = normalize_sale_time(record.get("搶票時間", "未公布"))
     event_time = normalize_event_time(record.get("活動時間") or record.get("演出時間") or "未公布")
-    venue = normalize_venue(record.get("活動地點") or record.get("演出地點") or "未公布")
+    venue_raw = record.get("活動地點") or record.get("演出地點") or "未公布"
+    venue = normalize_venue(venue_raw)
+    address = normalize_address(record.get("活動地址") or extract_address_from_text(venue_raw) or "未公布")
     price = normalize_price(record.get("票價", "未公布"))
     ticket_types = normalize_ticket_types(record.get("票種", "未公布"), price)
     url = clean_field(record.get("網址"), "")
@@ -456,9 +519,11 @@ def normalize_record(record: Dict) -> Dict:
     return build_event_record(
         source=source,
         artist=artist,
+        event_name=event_name,
         sale_time=sale_time,
         event_time=event_time,
         venue=venue,
+        address=address,
         price=price,
         ticket_types=ticket_types,
         url=url,
@@ -867,6 +932,8 @@ class TicketCrawler(ConcertCrawler):
 
             date = self._extract_date(full_text)
             venue = self._extract_venue(soup, full_text)
+            venue, address = split_venue_and_address(venue, full_text)
+            artist = extract_labeled_value(full_text, ["演出者", "演出藝人", "Artist"], 100) or title
             sale_time = extract_sale_time(full_text)
             price = "未公布"
             ticket_types = extract_ticket_types(full_text)
@@ -881,7 +948,7 @@ class TicketCrawler(ConcertCrawler):
                     if row_date and row_date != "未公布":
                         date = row_date
                     if row_venue and row_venue != "未公布":
-                        venue = row_venue
+                        venue, address = split_venue_and_address(row_venue, full_text)
                     if row_price and row_price != "未公布":
                         price = row_price.replace(" 、 ", "、").replace(" , ", "、")
                         ticket_types = extract_ticket_types_from_price(price)
@@ -894,6 +961,9 @@ class TicketCrawler(ConcertCrawler):
                     elif any(x in label for x in ["票種", "座位", "席次", "票券種類"]):
                         if value and value != "未公布":
                             ticket_types = value
+                    elif any(x in label for x in ["地址", "Address"]):
+                        if value and value != "未公布":
+                            address = value
                     elif any(x in label for x in ["票價", "Price"]):
                         if value and value != "未公布":
                             price = value
@@ -913,10 +983,12 @@ class TicketCrawler(ConcertCrawler):
                 return {}
             return build_event_record(
                 source=self.site_name,
-                artist=title or "未知藝人",
+                event_name=title or "未公布",
+                artist=artist or title or "未知藝人",
                 sale_time=sale_time,
                 event_time=date,
                 venue=venue,
+                address=address,
                 price=price,
                 ticket_types=ticket_types,
                 url=url,
@@ -951,6 +1023,8 @@ class TicketCrawler(ConcertCrawler):
 
             date = self._extract_date(full_text)
             venue = self._extract_venue(soup, full_text)
+            venue, address = split_venue_and_address(venue, full_text)
+            artist = extract_labeled_value(full_text, ["演出者", "演出藝人", "Artist"], 100) or title
             sale_time = extract_sale_time(full_text)
             price = extract_price_text(full_text)
             ticket_types = extract_ticket_types(full_text)
@@ -961,10 +1035,12 @@ class TicketCrawler(ConcertCrawler):
                 return {}
             return build_event_record(
                 source=self.site_name,
-                artist=title or "未知藝人",
+                event_name=title or "未公布",
+                artist=artist or title or "未知藝人",
                 sale_time=sale_time,
                 event_time=date,
                 venue=venue,
+                address=address,
                 price=price,
                 ticket_types=ticket_types,
                 url=url,
@@ -1002,6 +1078,7 @@ class TicketCrawler(ConcertCrawler):
                 normalized.append(
                     build_event_record(
                         source=self.site_name,
+                        event_name=title,
                         artist=title,
                         event_time=date or "未公布",
                         venue=venue or "未公布",
@@ -1269,6 +1346,7 @@ class IndievoxCrawler(ConcertCrawler):
                 merged_artist = clean_artist_text(detail.get('artist') or merged_title)
                 merged_date = detail.get('date') or date
                 merged_venue = detail.get('venue') or venue
+                merged_venue, merged_address = split_venue_and_address(merged_venue, detail.get("raw_text") or "")
                 merged_sale_time = detail.get('sale_time') or "未公布"
                 merged_price = detail.get('price') or "未公布"
                 merged_ticket_types = detail.get('ticket_types') or "未公布"
@@ -1280,10 +1358,12 @@ class IndievoxCrawler(ConcertCrawler):
 
                 item = build_event_record(
                     source=self.site_name,
+                    event_name=merged_title,
                     artist=merged_artist,
                     sale_time=merged_sale_time,
                     event_time=merged_date or "未公布",
                     venue=merged_venue or "未公布",
+                    address=merged_address,
                     price=merged_price,
                     ticket_types=merged_ticket_types,
                     url=link,
@@ -1654,14 +1734,14 @@ class ConcertCrawlerManager:
 
     def save_results(self, fmt: str = "excel") -> str:
         columns = [
-            "來源網站", "藝人", "搶票時間", "活動時間", "活動地點", "票價", "票種",
+            "來源網站", "活動名稱", "藝人", "搶票時間", "活動時間", "活動地點", "活動地址", "票價", "票種",
             "網址", "爬取時間", "演出藝人", "演出時間", "演出地點"
         ]
         normalized_records = [normalize_record(record) for record in self.all_concerts]
         normalized_records = [record for record in normalized_records if is_valid_concert_record(record)]
         self.all_concerts = normalized_records
         df = pd.DataFrame(normalized_records, columns=columns)
-        df = df.drop_duplicates(subset=["來源網站", "網址", "演出藝人", "演出時間", "演出地點"])
+        df = df.drop_duplicates(subset=["來源網站", "網址", "活動名稱", "演出時間", "演出地點"])
 
         for old in glob.glob("演唱會資訊彙整_*.xlsx"):
             try:
