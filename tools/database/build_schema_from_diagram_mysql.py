@@ -9,12 +9,12 @@
 - 藝人
 - 售票平台
 
-欄位對應（依圖）：
-- 使用者: 使用者編號PK, ID, 密碼
-- 活動: 活動編號PK, 場地編號FK, 藝人編號FK, 活動名稱, 票價, 票種, 活動時間, 售票時間, 活動連結
-- 活動地點: 場地編號PK, 場地名稱, 地址
-- 藝人: 藝人編號PK, 活動編號FK, 藝人名稱
-- 售票平台: 平台編號PK, 活動編號FK, 藝人編號FK, 平台名稱
+欄位對應（依圖，鍵名英文化）：
+- 使用者: user_id_pk, ID, 密碼
+- 活動: event_id_pk, venue_id_fk, artist_id_fk, 活動名稱, 票價, 票種, 活動時間, 售票時間, 活動連結
+- 活動地點: venue_id_pk, 場地名稱, 地址
+- 藝人: artist_id_pk, event_id_fk, 藝人名稱
+- 售票平台: platform_id_pk, event_id_fk, artist_id_fk, 平台名稱
 """
 
 import json
@@ -62,10 +62,10 @@ def create_schema(cur):
     cur.execute(
         """
         CREATE TABLE `使用者` (
-            `使用者編號PK` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id_pk` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `ID` VARCHAR(120) NOT NULL,
             `密碼` TEXT NOT NULL,
-            PRIMARY KEY (`使用者編號PK`),
+            PRIMARY KEY (`user_id_pk`),
             UNIQUE KEY `uk_user_id` (`ID`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
@@ -74,10 +74,10 @@ def create_schema(cur):
     cur.execute(
         """
         CREATE TABLE `活動地點` (
-            `場地編號PK` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `venue_id_pk` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `場地名稱` VARCHAR(255) NOT NULL,
             `地址` VARCHAR(255) NOT NULL,
-            PRIMARY KEY (`場地編號PK`),
+            PRIMARY KEY (`venue_id_pk`),
             UNIQUE KEY `uk_venue` (`場地名稱`, `地址`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
@@ -86,10 +86,10 @@ def create_schema(cur):
     cur.execute(
         """
         CREATE TABLE `藝人` (
-            `藝人編號PK` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `活動編號FK` BIGINT UNSIGNED NULL,
+            `artist_id_pk` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `event_id_fk` BIGINT UNSIGNED NULL,
             `藝人名稱` VARCHAR(255) NOT NULL,
-            PRIMARY KEY (`藝人編號PK`),
+            PRIMARY KEY (`artist_id_pk`),
             UNIQUE KEY `uk_artist_name` (`藝人名稱`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
@@ -98,23 +98,23 @@ def create_schema(cur):
     cur.execute(
         """
         CREATE TABLE `活動` (
-            `活動編號PK` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `場地編號FK` BIGINT UNSIGNED NULL,
-            `藝人編號FK` BIGINT UNSIGNED NULL,
+            `event_id_pk` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `venue_id_fk` BIGINT UNSIGNED NULL,
+            `artist_id_fk` BIGINT UNSIGNED NULL,
             `活動名稱` VARCHAR(500) NOT NULL,
             `票價` TEXT NOT NULL,
             `票種` TEXT NOT NULL,
             `活動時間` TEXT NOT NULL,
             `售票時間` TEXT NOT NULL,
             `活動連結` TEXT NOT NULL,
-            PRIMARY KEY (`活動編號PK`),
-            CONSTRAINT `fk_活動_場地` FOREIGN KEY (`場地編號FK`)
-                REFERENCES `活動地點` (`場地編號PK`)
+            PRIMARY KEY (`event_id_pk`),
+            CONSTRAINT `fk_event_venue` FOREIGN KEY (`venue_id_fk`)
+                REFERENCES `活動地點` (`venue_id_pk`)
                 ON UPDATE CASCADE ON DELETE SET NULL,
-            CONSTRAINT `fk_活動_藝人` FOREIGN KEY (`藝人編號FK`)
-                REFERENCES `藝人` (`藝人編號PK`)
+            CONSTRAINT `fk_event_artist` FOREIGN KEY (`artist_id_fk`)
+                REFERENCES `藝人` (`artist_id_pk`)
                 ON UPDATE CASCADE ON DELETE SET NULL,
-            UNIQUE KEY `uk_event_dedupe` (`活動名稱`(255), `活動時間`(120), `場地編號FK`, `藝人編號FK`, `活動連結`(255))
+            UNIQUE KEY `uk_event_dedupe` (`活動名稱`(255), `活動時間`(120), `venue_id_fk`, `artist_id_fk`, `活動連結`(255))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
@@ -122,29 +122,29 @@ def create_schema(cur):
     cur.execute(
         """
         CREATE TABLE `售票平台` (
-            `平台編號PK` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `活動編號FK` BIGINT UNSIGNED NULL,
-            `藝人編號FK` BIGINT UNSIGNED NULL,
+            `platform_id_pk` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `event_id_fk` BIGINT UNSIGNED NULL,
+            `artist_id_fk` BIGINT UNSIGNED NULL,
             `平台名稱` VARCHAR(255) NOT NULL,
-            PRIMARY KEY (`平台編號PK`),
-            CONSTRAINT `fk_平台_活動` FOREIGN KEY (`活動編號FK`)
-                REFERENCES `活動` (`活動編號PK`)
+            PRIMARY KEY (`platform_id_pk`),
+            CONSTRAINT `fk_platform_event` FOREIGN KEY (`event_id_fk`)
+                REFERENCES `活動` (`event_id_pk`)
                 ON UPDATE CASCADE ON DELETE CASCADE,
-            CONSTRAINT `fk_平台_藝人` FOREIGN KEY (`藝人編號FK`)
-                REFERENCES `藝人` (`藝人編號PK`)
+            CONSTRAINT `fk_platform_artist` FOREIGN KEY (`artist_id_fk`)
+                REFERENCES `藝人` (`artist_id_pk`)
                 ON UPDATE CASCADE ON DELETE SET NULL,
-            UNIQUE KEY `uk_platform_event_artist` (`平台名稱`, `活動編號FK`, `藝人編號FK`)
+            UNIQUE KEY `uk_platform_event_artist` (`平台名稱`, `event_id_fk`, `artist_id_fk`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
 
-    # 補上圖中的 藝人.活動編號FK 外鍵（活動表已建立後再加）
+    # 補上圖中的 藝人.event_id_fk 外鍵（活動表已建立後再加）
     cur.execute(
         """
         ALTER TABLE `藝人`
-        ADD CONSTRAINT `fk_藝人_活動`
-            FOREIGN KEY (`活動編號FK`)
-            REFERENCES `活動` (`活動編號PK`)
+        ADD CONSTRAINT `fk_artist_event`
+            FOREIGN KEY (`event_id_fk`)
+            REFERENCES `活動` (`event_id_pk`)
             ON UPDATE CASCADE ON DELETE SET NULL
         """
     )
@@ -155,14 +155,14 @@ def create_views(cur):
         """
         CREATE VIEW `活動聯合檢視` AS
         SELECT
-            a.`活動編號PK` AS `活動編號PK`,
+            a.`event_id_pk` AS `event_id_pk`,
             a.`活動名稱` AS `活動名稱`,
-            r.`藝人編號PK` AS `藝人編號PK`,
+            r.`artist_id_pk` AS `artist_id_pk`,
             r.`藝人名稱` AS `藝人名稱`,
-            v.`場地編號PK` AS `場地編號PK`,
+            v.`venue_id_pk` AS `venue_id_pk`,
             v.`場地名稱` AS `場地名稱`,
             v.`地址` AS `地址`,
-            p.`平台編號PK` AS `平台編號PK`,
+            p.`platform_id_pk` AS `platform_id_pk`,
             p.`平台名稱` AS `平台名稱`,
             a.`票價` AS `票價`,
             a.`票種` AS `票種`,
@@ -170,9 +170,9 @@ def create_views(cur):
             a.`售票時間` AS `售票時間`,
             a.`活動連結` AS `活動連結`
         FROM `活動` a
-        LEFT JOIN `藝人` r ON a.`藝人編號FK` = r.`藝人編號PK`
-        LEFT JOIN `活動地點` v ON a.`場地編號FK` = v.`場地編號PK`
-        LEFT JOIN `售票平台` p ON p.`活動編號FK` = a.`活動編號PK`
+        LEFT JOIN `藝人` r ON a.`artist_id_fk` = r.`artist_id_pk`
+        LEFT JOIN `活動地點` v ON a.`venue_id_fk` = v.`venue_id_pk`
+        LEFT JOIN `售票平台` p ON p.`event_id_fk` = a.`event_id_pk`
         """
     )
 
@@ -186,7 +186,7 @@ def get_or_create_venue(cur, cache, name, address):
         key,
     )
     cur.execute(
-        "SELECT `場地編號PK` FROM `活動地點` WHERE `場地名稱`=%s AND `地址`=%s",
+        "SELECT `venue_id_pk` FROM `活動地點` WHERE `場地名稱`=%s AND `地址`=%s",
         key,
     )
     venue_id = cur.fetchone()[0]
@@ -199,7 +199,7 @@ def get_or_create_artist(cur, cache, artist_name):
     if name in cache:
         return cache[name]
     cur.execute("INSERT IGNORE INTO `藝人` (`藝人名稱`) VALUES (%s)", (name,))
-    cur.execute("SELECT `藝人編號PK` FROM `藝人` WHERE `藝人名稱`=%s", (name,))
+    cur.execute("SELECT `artist_id_pk` FROM `藝人` WHERE `藝人名稱`=%s", (name,))
     artist_id = cur.fetchone()[0]
     cache[name] = artist_id
     return artist_id
@@ -244,7 +244,7 @@ def import_events(cur):
         cur.execute(
             """
             INSERT IGNORE INTO `活動` (
-                `場地編號FK`, `藝人編號FK`, `活動名稱`, `票價`, `票種`,
+                `venue_id_fk`, `artist_id_fk`, `活動名稱`, `票價`, `票種`,
                 `活動時間`, `售票時間`, `活動連結`
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
@@ -263,9 +263,9 @@ def import_events(cur):
 
         cur.execute(
             """
-            SELECT `活動編號PK`
+            SELECT `event_id_pk`
             FROM `活動`
-            WHERE `活動名稱`=%s AND `活動時間`=%s AND `場地編號FK`=%s AND `藝人編號FK`=%s AND `活動連結`=%s
+            WHERE `活動名稱`=%s AND `活動時間`=%s AND `venue_id_fk`=%s AND `artist_id_fk`=%s AND `活動連結`=%s
             LIMIT 1
             """,
             (
@@ -278,12 +278,12 @@ def import_events(cur):
         )
         event_id = cur.fetchone()[0]
 
-        # 藝人表的 活動編號FK：保留第一筆關聯
+        # 藝人表的 event_id_fk：保留第一筆關聯
         cur.execute(
             """
             UPDATE `藝人`
-            SET `活動編號FK`=%s
-            WHERE `藝人編號PK`=%s AND `活動編號FK` IS NULL
+            SET `event_id_fk`=%s
+            WHERE `artist_id_pk`=%s AND `event_id_fk` IS NULL
             """,
             (event_id, artist_id),
         )
@@ -291,7 +291,7 @@ def import_events(cur):
         platform_name = clean(row.get("來源網站"))
         cur.execute(
             """
-            INSERT IGNORE INTO `售票平台` (`活動編號FK`, `藝人編號FK`, `平台名稱`)
+            INSERT IGNORE INTO `售票平台` (`event_id_fk`, `artist_id_fk`, `平台名稱`)
             VALUES (%s, %s, %s)
             """,
             (event_id, artist_id, platform_name),
@@ -309,35 +309,35 @@ def verify(cur):
 
     print("\n=== 外鍵孤兒檢查（應為 0）===")
     checks = {
-        "活動.場地編號FK": """
+        "活動.venue_id_fk": """
             SELECT COUNT(*)
             FROM `活動` a
-            LEFT JOIN `活動地點` v ON a.`場地編號FK`=v.`場地編號PK`
-            WHERE a.`場地編號FK` IS NOT NULL AND v.`場地編號PK` IS NULL
+            LEFT JOIN `活動地點` v ON a.`venue_id_fk`=v.`venue_id_pk`
+            WHERE a.`venue_id_fk` IS NOT NULL AND v.`venue_id_pk` IS NULL
         """,
-        "活動.藝人編號FK": """
+        "活動.artist_id_fk": """
             SELECT COUNT(*)
             FROM `活動` a
-            LEFT JOIN `藝人` r ON a.`藝人編號FK`=r.`藝人編號PK`
-            WHERE a.`藝人編號FK` IS NOT NULL AND r.`藝人編號PK` IS NULL
+            LEFT JOIN `藝人` r ON a.`artist_id_fk`=r.`artist_id_pk`
+            WHERE a.`artist_id_fk` IS NOT NULL AND r.`artist_id_pk` IS NULL
         """,
-        "藝人.活動編號FK": """
+        "藝人.event_id_fk": """
             SELECT COUNT(*)
             FROM `藝人` r
-            LEFT JOIN `活動` a ON r.`活動編號FK`=a.`活動編號PK`
-            WHERE r.`活動編號FK` IS NOT NULL AND a.`活動編號PK` IS NULL
+            LEFT JOIN `活動` a ON r.`event_id_fk`=a.`event_id_pk`
+            WHERE r.`event_id_fk` IS NOT NULL AND a.`event_id_pk` IS NULL
         """,
-        "售票平台.活動編號FK": """
+        "售票平台.event_id_fk": """
             SELECT COUNT(*)
             FROM `售票平台` p
-            LEFT JOIN `活動` a ON p.`活動編號FK`=a.`活動編號PK`
-            WHERE p.`活動編號FK` IS NOT NULL AND a.`活動編號PK` IS NULL
+            LEFT JOIN `活動` a ON p.`event_id_fk`=a.`event_id_pk`
+            WHERE p.`event_id_fk` IS NOT NULL AND a.`event_id_pk` IS NULL
         """,
-        "售票平台.藝人編號FK": """
+        "售票平台.artist_id_fk": """
             SELECT COUNT(*)
             FROM `售票平台` p
-            LEFT JOIN `藝人` r ON p.`藝人編號FK`=r.`藝人編號PK`
-            WHERE p.`藝人編號FK` IS NOT NULL AND r.`藝人編號PK` IS NULL
+            LEFT JOIN `藝人` r ON p.`artist_id_fk`=r.`artist_id_pk`
+            WHERE p.`artist_id_fk` IS NOT NULL AND r.`artist_id_pk` IS NULL
         """,
     }
     for name, sql in checks.items():
