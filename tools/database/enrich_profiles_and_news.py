@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import html
 import hashlib
+import os
 import re
 import time
 import xml.etree.ElementTree as ET
@@ -25,11 +26,11 @@ import mysql.connector
 import requests
 
 DB_CONFIG = dict(
-    host="127.0.0.1",
-    port=3306,
-    user="root",
-    password="barry0803",
-    database="concerts",
+    host=os.getenv("DB_HOST", "127.0.0.1"),
+    port=int(os.getenv("DB_PORT", "3306")),
+    user=os.getenv("DB_USER", "root"),
+    password=os.getenv("DB_PASSWORD", "barry0803"),
+    database=os.getenv("DB_NAME", "concerts"),
     charset="utf8mb4",
     collation="utf8mb4_unicode_ci",
     autocommit=False,
