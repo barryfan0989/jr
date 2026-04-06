@@ -14,6 +14,7 @@ DATA_DIR = ROOT / "爬蟲資料"
 OUT_DIR = DATA_DIR / "整理後"
 OUT_JSON = OUT_DIR / "concerts_merged.json"
 OUT_DB = OUT_DIR / "concerts_merged.db"
+TEAM_CRAWLERS_DIR = ROOT / "組員給的爬蟲"
 
 
 ARTIST_WHITELIST_PATTERNS = [
@@ -165,6 +166,13 @@ def make_record(
         "爬取時間": clean(crawl_time, datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         "資料來源檔": source_file,
     }
+
+
+def pick_existing_path(*paths: Path) -> Path | None:
+    for path in paths:
+        if path and path.exists():
+            return path
+    return None
 
 
 def load_crawler_json(path: Path) -> List[Dict]:
@@ -410,6 +418,117 @@ def load_kham_excel(path: Path) -> List[Dict]:
     return out
 
 
+def load_kham_csv_folder(folder: Path) -> List[Dict]:
+    activities = pd.read_csv(folder / "活動.csv")
+    locations = pd.read_csv(folder / "活動地點.csv")
+    artists = pd.read_csv(folder / "藝人.csv")
+    platforms = pd.read_csv(folder / "售票平台.csv")
+
+    loc_map = {
+        clean(row.get("場地編號PK"), ""): {
+            "場地名稱": clean(row.get("場地名稱"), "未公布"),
+            "地址": clean(row.get("地址"), ""),
+        }
+        for _, row in locations.iterrows()
+    }
+    artist_map = {
+        clean(row.get("藝人編號PK"), ""): clean(row.get("藝人名稱"), "未知藝人")
+        for _, row in artists.iterrows()
+    }
+    platform_map = {
+        clean(row.get("活動編號FK"), ""): clean(row.get("平台名稱"), "寬宏售票")
+        for _, row in platforms.iterrows()
+    }
+
+    out = []
+    for _, row in activities.iterrows():
+        act_id = clean(row.get("活動編號PK"), "")
+        loc_fk = clean(row.get("場地編號FK"), "")
+        artist_fk = clean(row.get("藝人編號FK"), "")
+
+        loc = loc_map.get(loc_fk, {"場地名稱": "未公布", "地址": ""})
+        venue = loc.get("場地名稱", "未公布")
+        address = clean(loc.get("地址"), "未提供")
+
+        artist = artist_map.get(artist_fk, "未知藝人")
+        if artist in ["未知藝人", "未提供", "未提供藝人"]:
+            artist = clean(row.get("活動名稱"), "未知藝人")
+
+        out.append(
+            make_record(
+                source_site=platform_map.get(act_id, "寬宏售票"),
+                event_name=row.get("活動名稱", "未公布"),
+                artist=artist,
+                sale_time=row.get("售票時間", "未公布"),
+                event_time=row.get("活動時間", "未公布"),
+                venue=venue,
+                address=address,
+                price=row.get("票價", "未公布"),
+                ticket_types=row.get("票種", "未公布"),
+                url=row.get("活動連結", ""),
+                crawl_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                source_file=f"{folder.name}/活動.csv",
+            )
+        )
+    return out
+
+
+def load_ibon_json(path: Path) -> List[Dict]:
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    out = []
+    now_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    for row in rows:
+        out.append(
+            make_record(
+                source_site="ibon售票",
+                event_name=row.get("活動名稱", "未公布"),
+                artist=row.get("藝人") or row.get("活動名稱", "未知藝人"),
+                sale_time=row.get("搶票時間", "未公布"),
+                event_time=row.get("活動時間", "未公布"),
+                venue=row.get("地點", "未公布"),
+                address=row.get("地址", "未提供"),
+                price=row.get("票價", "未公布"),
+                ticket_types=row.get("票種", "未公布"),
+                url=row.get("活動連結", ""),
+                crawl_time=now_text,
+                source_file=path.name,
+            )
+        )
+    return out
+
+
+def load_ticketplus_json(path: Path) -> List[Dict]:
+    """載入新的遠大售票爬蟲輸出 (ticketplus_activities.json)"""
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    out = []
+    for row in rows:
+        # 從活動場地中分離場館名和地址
+        venue_raw = clean(row.get("活動場地"), "")
+        import re
+        venue_match = re.search(r"^([^（(]+)", venue_raw)
+        venue = venue_match.group(1).strip() if venue_match else venue_raw
+        addr_match = re.search(r"[（(]([^）)]+)[）)]", venue_raw)
+        address = addr_match.group(1).strip() if addr_match else "未提供"
+        
+        out.append(
+            make_record(
+                source_site="遠大售票 TicketPlus",
+                event_name=row.get("活動名稱", "未公布"),
+                artist=row.get("活動名稱", "未知藝人"),  # 無獨立藝人欄位，使用活動名稱
+                sale_time=row.get("搶票時間", "未公布"),
+                event_time=row.get("活動日期", "未公布"),
+                venue=clean(venue, "未公布"),
+                address=clean(address, "未提供"),
+                price=clean(row.get("票價資訊"), "未公布"),
+                ticket_types=row.get("票種", "未公布"),
+                url=row.get("活動頁面", ""),
+                crawl_time=clean(row.get("爬取時間"), datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                source_file=path.name,
+            )
+        )
+    return out
+
+
 def dedupe(records: List[Dict]) -> List[Dict]:
     result = []
     seen = set()
@@ -498,29 +617,71 @@ def main():
         records.extend(part)
         source_stats[crawler_json.name] = len(part)
 
-    tix_path = DATA_DIR / "tixcraft_activities.json"
-    if tix_path.exists():
+    # 優先使用「組員給的爬蟲」新資料；舊路徑作為備援
+    tix_path = pick_existing_path(
+        DATA_DIR / "tixcraft_activities_new.json",
+        TEAM_CRAWLERS_DIR / "Tixcraft 爬蟲" / "tixcraft_activities.json",
+        DATA_DIR / "tixcraft_activities.json",
+    )
+    if tix_path:
         part = load_tixcraft_json(tix_path)
         records.extend(part)
         source_stats[tix_path.name] = len(part)
 
-    kktix_path = DATA_DIR / "kktix_events_report.xlsx"
-    if kktix_path.exists():
+    kktix_path = pick_existing_path(
+        TEAM_CRAWLERS_DIR / "kktix爬蟲" / "kktix_events_report.xlsx",
+        DATA_DIR / "kktix_events_report.xlsx",
+    )
+    if kktix_path:
         part = load_kktix_excel(kktix_path)
         records.extend(part)
         source_stats[kktix_path.name] = len(part)
 
-    kham_path = DATA_DIR / "寬宏.xlsx"
-    if kham_path.exists():
-        part = load_kham_excel(kham_path)
+    kham_excel_path = pick_existing_path(
+        TEAM_CRAWLERS_DIR / "寬宏爬蟲" / "kham_data.xlsx",
+        DATA_DIR / "寬宏.xlsx",
+    )
+    if kham_excel_path:
+        part = load_kham_excel(kham_excel_path)
         records.extend(part)
-        source_stats[kham_path.name] = len(part)
+        source_stats[kham_excel_path.name] = len(part)
+    else:
+        kham_csv_folder = TEAM_CRAWLERS_DIR / "寬宏爬蟲"
+        required_csv = [
+            kham_csv_folder / "活動.csv",
+            kham_csv_folder / "活動地點.csv",
+            kham_csv_folder / "藝人.csv",
+            kham_csv_folder / "售票平台.csv",
+        ]
+        if all(p.exists() for p in required_csv):
+            part = load_kham_csv_folder(kham_csv_folder)
+            records.extend(part)
+            source_stats[f"{kham_csv_folder.name}/*.csv"] = len(part)
+
+    ibon_path = pick_existing_path(
+        TEAM_CRAWLERS_DIR / "ibon爬蟲" / "ibon_all_data.json",
+        DATA_DIR / "ibon_all_data.json",
+    )
+    if ibon_path:
+        part = load_ibon_json(ibon_path)
+        records.extend(part)
+        source_stats[ibon_path.name] = len(part)
 
     yuanda_path = DATA_DIR / "遠大.xlsx"
     if yuanda_path.exists():
         part = load_yuanda_excel(yuanda_path)
         records.extend(part)
         source_stats[yuanda_path.name] = len(part)
+
+    # 新的遠大爬蟲輸出 (ticketplus)
+    ticketplus_json = pick_existing_path(
+        TEAM_CRAWLERS_DIR / "遠大爬蟲" / "爬蟲資料" / "ticketplus_output" / "ticketplus_activities.json",
+        DATA_DIR / "ticketplus_output" / "ticketplus_activities.json",
+    )
+    if ticketplus_json:
+        part = load_ticketplus_json(ticketplus_json)
+        records.extend(part)
+        source_stats[ticketplus_json.name] = len(part)
 
     deduped = dedupe(records)
 

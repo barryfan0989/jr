@@ -1,0 +1,474 @@
+{
+  "scrape_time": "2026-04-05 23:11:38",
+  "total_events": 48,
+  "fields": [
+    "event_name",
+    "ticket_price",
+    "ticket_types",
+    "event_time",
+    "sale_time",
+    "event_link",
+    "venue_name",
+    "address",
+    "artist_name"
+  ],
+  "events": [
+    {
+      "event_name": "【Mastercard專區】LANY:soft world tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_lany_c",
+      "ticket_price": "NT$800 / NT$200",
+      "ticket_types": "NTD. / 票價Price:NTD.",
+      "event_time": "2026/09/26 (SAT) 19:30",
+      "sale_time": "星展萬事達卡卡友預售票 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/25 (三WED) 10:00 ~ 2026/03/26 (四THU) 10:00 / 2026/03/27 (五 FRI) 12:00",
+      "venue_name": "台北小巨蛋（TAIPEI ARENA）",
+      "artist_name": "LANY"
+    },
+    {
+      "event_name": "LANY:soft world tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_lany",
+      "ticket_price": "NT$800",
+      "ticket_types": "NTD.",
+      "event_time": "2026/09/26 (六) 19:30",
+      "sale_time": "LANY官方預售 2026/03/24 (二) 12:00 ~ 23:59 / 2026/03/25 (三) 10:00 ~ 2026/03/26 (四) 10:00 / Live Nation Taiwan會員預售 2026/03/26 (四) 12:00 ~ 23:59 / 正式開賣 2026/03/27 (五) 12:00全面開賣 / 星展萬事達卡飛行世界之極卡和飛行世界商務卡卡友精選票 2026/03/27 (五) 12:00 / 台灣大哥大、MyVideo會員獨享購票專區 2026/03/27 (五) 12:00～2026/03/30 (一) 12:00",
+      "venue_name": "台北小巨蛋（TAIPEI ARENA）",
+      "artist_name": "LANY"
+    },
+    {
+      "event_name": "Post Malone Presents The BIG ASS Stadium World Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_malone",
+      "ticket_price": "NT$2,980 / NT$12,180 / NT$10,080",
+      "ticket_types": "NTD / PREMIUM VIP PACKAGE (NTD / EARLY ENTRY VIP PACKAGE (NTD / 票價:NTD",
+      "event_time": "2026/09/19 (六) 19:00",
+      "sale_time": "POST MALONE藝人官方預售 2026/04/06（一）中午12:00 PM～23:59 PM / 星展萬事達卡卡友預售 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/04/07（二）10:00 AM~2026/04/09（四）10:00 AM / Live Nation Taiwan會員預售 2026/04/09（四）中午12:00 PM ~23:59 PM / 正式開賣 2026/04/10（五）中午12:00 PM起 / 星展萬事達卡飛行世界之極卡和飛行世界商務卡卡友精選票 2026/04/10（五）中午12:00 PM / TWM / MyVideo會員獨享購票專區 2026/04/10（五）中午12:00 PM~2026/04/13（一）中午12:00 PM",
+      "venue_name": "高雄國家體育場 (世運主場館)",
+      "artist_name": "Post Malone"
+    },
+    {
+      "event_name": "【Mastercard專區】Post Malone Presents The BIG ASS Stadium World Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_malone_c",
+      "ticket_price": "NT$2,980 / NT$12,180 / NT$10,080",
+      "ticket_types": "NTD / to VIP PACKAGE $12 / PREMIUM VIP PACKAGE (NTD / EARLY ENTRY VIP PACKAGE (NTD",
+      "event_time": "2026/09/19 (Sat) 19:00",
+      "sale_time": "星展萬事達卡卡友預售 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/04/07（Tue）10:00 AM~2026/04/09（Thu）10:00 AM / 2026/04/10（Fri）12:00 PM",
+      "venue_name": "高雄國家體育場 (世運主場館) Kaohsiung National Stadium",
+      "artist_name": "Post Malone"
+    },
+    {
+      "event_name": "IVE WORLD TOUR ＜SHOW WHAT I AM＞ IN TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_ive",
+      "ticket_price": "NT$5,800 / NT$4,800 / NT$3,800 / NT$2,800 / NT$2,300 / NT$800 / NT$400 / NT$7,800",
+      "ticket_types": "身障優惠票 / VIP PACKAGE， / 一般票價",
+      "event_time": "2026/09/11（五）19:00 / 2026/09/12（六）18:00",
+      "sale_time": "正式開賣 2026/04/03 (五) 11:00全面開賣",
+      "venue_name": "台北小巨蛋 (Taipei Arena)",
+      "artist_name": "IVE"
+    },
+    {
+      "event_name": "Kodaline - Farewell Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_kodaline",
+      "ticket_price": "NT$2,300 / NT$9,700",
+      "ticket_types": "NTD. / SOUNDCHECK VIP PACKAGE - NTD",
+      "event_time": "2026/08/24 (一) 20:00",
+      "sale_time": "Kodaline官方預售 2026/03/30 (一) 11:00 ~ 23:59 / 星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/31 (二) 11:00 ~ 23:59 / Live Nation Taiwan會員預售 2026/04/01 (三) 11:00 ~ 23:59 / 正式開賣 2026/04/02 (四) 11:00全面開賣 / 台灣大哥大、MyVideo會員獨享購票專區 2026/04/02 (四) 11:00～2026/04/05 (日) 11:00",
+      "venue_name": "台北國際會議中心(TICC)",
+      "artist_name": "Kodaline"
+    },
+    {
+      "event_name": "【Mastercard專區】Kodaline - Farewell Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_kodaline_c",
+      "ticket_price": "NT$2,300 / NT$9,700",
+      "ticket_types": "NTD. / to 9 / SOUNDCHECK VIP PACKAGE - NTD",
+      "event_time": "2026/08/24 (一) 20:00 / 2026/08/24 (MON) 20:00",
+      "sale_time": "星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/31 (TUE) 11:00 ~ 23:59 / 2026/03/31 (二) 11:00 ~ 23:59",
+      "venue_name": "TAIPEI INTERNATIONAL CONVENTION CENTER (TICC)",
+      "artist_name": "Kodaline"
+    },
+    {
+      "event_name": "公館青少年 GGteens 2026 年度專場【青少年之後】",
+      "event_link": "https://tixcraft.com/activity/detail/26_ggteens",
+      "ticket_price": "NT$1,600 / NT$1,300 / NT$2,400 / NT$1,400 / NT$1,100 / NT$800",
+      "ticket_types": "VIP / GA / GA 雙人套票 / 身障席",
+      "event_time": "2026/07/25（六） 18:30",
+      "sale_time": "03/04（三）12:00",
+      "venue_name": "Zepp New Taipei",
+      "artist_name": "公館青少年"
+    },
+    {
+      "event_name": "FUJI ROCK FESTIVAL’26",
+      "event_link": "https://tixcraft.com/activity/detail/26_fujirock",
+      "event_time": "2026/07/24(五), 07/25(六), 07/26(日)",
+      "sale_time": "官方預售開賣時間 2026/02/20(五) 11:00~2026/05/15(五) 22:00 / 2026/05/16(六) ~",
+      "venue_name": "新潟縣苗場滑雪場",
+      "address": "新潟湯澤町"
+    },
+    {
+      "event_name": "EXO PLANET #6 - EXhOrizon in KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_exokh",
+      "ticket_price": "NT$5,990 / NT$5,490 / NT$4,990 / NT$3,990 / NT$2,990 / NT$2,995 / NT$1,495 / NT$7,290",
+      "ticket_types": "身障席 / VIP套票 / VIP套票(",
+      "event_time": "2026/07/18 (六) 18:00",
+      "sale_time": "EXO-L MEMBERSHIP (GLOBAL) PRESALE 優先購票登記 2026/03/24 (二) 11:00 AM - 2026/03/26 (四) 11:00 AM / 2026/4/1(三) 12 PM - 23:59 PM / Live Nation Taiwan會員預售 2026/4/2(四) 11 AM - 23:59 PM / 正式開賣 2026/4/3(五) 11 AM全面開賣",
+      "venue_name": "高雄巨蛋（K ARENA）"
+    },
+    {
+      "event_name": "Michael Learns to Rock Encore All The Hits Taiwan",
+      "event_link": "https://tixcraft.com/activity/detail/26_mltr",
+      "ticket_price": "NT$8,800 / NT$5,800 / NT$4,800 / NT$3,600 / NT$2,800 / NT$2,200 / NT$2,400",
+      "ticket_types": "VVIP / VIP / CAT1 / CAT2 / CAT3 / CAT4 / 身障席",
+      "event_time": "2026/07/05（日）19:00 (實際演出以現場為準)",
+      "sale_time": "售票時間 預 售 2026/01/12（一）10:00-22:00 / 全面開賣 2026/01/13（二）10:00",
+      "venue_name": "高雄流行音樂中心海音館",
+      "artist_name": "Michael Learns to Rock"
+    },
+    {
+      "event_name": "ITZY 3RD WORLD TOUR ＜TUNNEL VISION＞ in KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_itzy",
+      "ticket_price": "NT$5,880 / NT$4,880 / NT$4,380 / NT$3,880 / NT$2,880 / NT$2,440 / NT$1,440 / NT$6,880",
+      "ticket_types": "非輪椅區身障優惠票(陪同票 / 輪椅區身障優惠票(陪同票 / VIP套票 / VIP",
+      "event_time": "2026/06/27 (六) 18:00 / 2026/06/28 (日) 17:00",
+      "sale_time": "星展萬事達卡卡友預售票 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/24 (二) 11:00 ~ 23:59 / Live Nation Taiwan會員預售 2026/03/25 (三) 11:00 ~ 23:59 / 正式開賣 2026/03/26 (四) 11:00全面開賣 / 加場開賣 2026/03/31 (二) 12:00全面開賣 / 台灣大哥大、MyVideo會員獨享購票專區 2026/03/26 (四) 11:00 ~ 2026/03/29 (六) 11:00",
+      "venue_name": "高雄巨蛋（K-ARENA）",
+      "artist_name": "ITZY"
+    },
+    {
+      "event_name": "KAZUYA KAMENASHI “TALK TO ME” ASIA TOUR 2026 IN KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_kamenashi",
+      "ticket_price": "NT$5,200 / NT$4,600 / NT$4,200 / NT$3,800 / NT$2,100",
+      "ticket_types": "身障席",
+      "event_time": "2026年6月27日(六) 17:00 (實際演出時間以現場公告為準)",
+      "sale_time": "售票系統:拓元售票系統 2026年3月7日(六) 12:00",
+      "venue_name": "高雄流行音樂中心(海音館)",
+      "artist_name": "龜梨和也"
+    },
+    {
+      "event_name": "【Mastercard專區】ITZY 3RD WORLD TOUR ＜TUNNEL VISION＞ in KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_itzy_c",
+      "ticket_price": "NT$5,880 / NT$4,880 / NT$4,380 / NT$3,880 / NT$2,880 / NT$2,440 / NT$1,440 / NT$6,880",
+      "ticket_types": "非輪椅區身障優惠票(陪同票 / 輪椅區身障優惠票(陪同票 / VIP套票 / VIP套票 VIP Package / VIP / 票價Price",
+      "event_time": "2026/06/27 (六 Sat) 18:00",
+      "sale_time": "星展萬事達卡卡友預售票 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/24 (二 Tue) 11:00 ~ 23:59",
+      "venue_name": "高雄巨蛋（K-ARENA）",
+      "artist_name": "ITZY"
+    },
+    {
+      "event_name": "TPE48「第11張單曲」發售紀念握手會",
+      "event_link": "https://tixcraft.com/activity/detail/26_tpe4811th",
+      "event_time": "2026/06/20 (六) ~ 2026/06/21 (日) ，請攜帶領取編號及身分證明文件於現場領取兌換完成的握手券",
+      "venue_name": "出席成員暨握手時間表】",
+      "artist_name": "TPE48"
+    },
+    {
+      "event_name": "【Mastercard專區】BUS THE 1ST ASIA FANCON TOUR:THE FIRST LIGHT IN TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_bus_c",
+      "ticket_price": "NT$5,880 / NT$4,880 / NT$3,880 / NT$2,880 / NT$1,880 / NT$1,440",
+      "ticket_types": "身障優待票 / VIP1 Package / VIP2 Package / 1F站區 / 2F座位 / 2F站區 / accessibility tickets / 1F GA / 2F SEATED / 2F GA",
+      "event_time": "2026/05/28（四）19:00 / 2026/05/28（THUR）19:00",
+      "sale_time": "星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡) 2026/03/19(四) 11:00 ~ 23:59",
+      "venue_name": "Zepp New Taipei",
+      "address": "新莊宏匯廣場8F",
+      "artist_name": "BUS"
+    },
+    {
+      "event_name": "BUS THE 1ST ASIA FANCON TOUR:THE FIRST LIGHT IN TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_bus",
+      "ticket_price": "NT$5,880 / NT$4,880 / NT$3,880 / NT$2,880 / NT$1,880 / NT$1,440",
+      "ticket_types": "VIP1 Package / VIP2 Package / 2F座位 / 1F站區 / 2F站區 / 身障優待票",
+      "event_time": "2026/05/28（四）19:00",
+      "sale_time": "BEUS 會員預購 2026/03/18(三) 11:00 ~ 23:59 / 星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡) 2026/03/19(四) 11:00 ~ 23:59 / 正式開賣 2026/03/20 (五) 11:00 AM全面開賣",
+      "venue_name": "Zepp New Taipei",
+      "address": "新莊宏匯廣場8F",
+      "artist_name": "BUS"
+    },
+    {
+      "event_name": "【Mastercard專區】Anson Seabra:The I Must Be Dreaming Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_anson_c",
+      "ticket_price": "NT$1,980 / NT$990",
+      "ticket_types": "身障優惠票",
+      "event_time": "2026/05/25（一）20:00 / 2026/5/25 (MON) 20:00",
+      "sale_time": "星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/01/19 (一) 11:00 ~ 2026/01/20 (二) 11:00 / 2026/01/19 (MON) 11:00 ~ 2026/01/20 (TUE) 11:00",
+      "venue_name": "Legacy Taipei",
+      "artist_name": "Anson Seabra"
+    },
+    {
+      "event_name": "【VIP Upgrade/升級VIP】Anson Seabra:The I Must Be Dreaming Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_anson_v",
+      "ticket_price": "NT$2,600",
+      "event_time": "2026/05/25（一）20:00 / 2026/5/25（一）20:00",
+      "sale_time": "開賣時間Public on sale 2026/01/19 (一) 11:00 AM",
+      "venue_name": "Legacy Taipei",
+      "artist_name": "Anson Seabra"
+    },
+    {
+      "event_name": "Anson Seabra:The I Must Be Dreaming Tour",
+      "event_link": "https://tixcraft.com/activity/detail/26_anson",
+      "ticket_price": "NT$1,980 / NT$990",
+      "ticket_types": "身障優惠票",
+      "event_time": "2026/05/25（一）20:00",
+      "sale_time": "星展萬事達卡卡友預售 (僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/01/19 (一) 11:00 ~ 2026/01/20 (二) 11:00 / Live Nation Taiwan會員預售 2026/01/21 (三) 11:00 ~ 23:59 / 正式開賣 2026/01/22 (四) 11:00 全面開賣",
+      "venue_name": "Legacy Taipei",
+      "artist_name": "Anson Seabra"
+    },
+    {
+      "event_name": "AS= =+ 美秀集團十週年演唱會 抵嘉啦",
+      "event_link": "https://tixcraft.com/activity/detail/26_amazing",
+      "ticket_price": "NT$2,499 / NT$3,200 / NT$1,600",
+      "ticket_types": "現場票 / 身心票",
+      "event_time": "2026/05/23（六）、2026/05/24（日） 18:30 開演（實際時間以官方公告為準）",
+      "sale_time": "售票:拓元售票系統 2026/03/19 (四) 中午12:00 ~晚上23:59 美秀集團官網會員優先預購；2026/03/20 (五) 中午12:00 全面開賣。",
+      "address": "嘉義市大同技術學院",
+      "artist_name": "美秀集團"
+    },
+    {
+      "event_name": "2026 WOODZ WORLD TOUR ’Archive. 1’ IN TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_woodz",
+      "ticket_price": "NT$4,880 / NT$4,680 / NT$4,280 / NT$3,880 / NT$2,400",
+      "ticket_types": "身障席",
+      "event_time": "2026/05/23(六) 7:30 / 2026/05/24(日) 6:00",
+      "sale_time": "售票平台:拓元售票 2026/03/14(六) 12 PM",
+      "venue_name": "ZEPP NEW TAIPEI",
+      "artist_name": "WOODZ"
+    },
+    {
+      "event_name": "WWW music:g0nny",
+      "event_link": "https://tixcraft.com/activity/detail/26_wwwxg0nny",
+      "ticket_price": "NT$1,480 / NT$740",
+      "ticket_types": "票 價 ✶ / 身障席"
+    },
+    {
+      "event_name": "Accusefive告五人[Run，Run，Run! 黑夜狂奔] 2026 Live Tour the World",
+      "event_link": "https://tixcraft.com/activity/detail/26_aftour",
+      "ticket_price": "NT$1,800 / NT$1,600 / NT$800",
+      "ticket_types": "一樓全站席 / 身障席",
+      "event_time": "5/16(六) 19:30、5/17(日) 19:30",
+      "sale_time": "2026/3/28 (六) 12:00 全面開賣",
+      "venue_name": "Zepp New Taipei",
+      "address": "新北市新莊區新北大道四段3號8樓",
+      "artist_name": "告五人"
+    },
+    {
+      "event_name": "ZUTOMAYO INTENSE II「坐•ZOMBIE CRAB LABO」TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_ztmy_a",
+      "ticket_price": "NT$4,800 / NT$3,800 / NT$2,800 / NT$2,400",
+      "ticket_types": "VVIP / VIP / Standing A / 身障席",
+      "event_time": "2026/5/16 (六) 18:00 / 2026/5/17 (日) 17:00",
+      "sale_time": "ZUTOMAYO PREMIUM會員 會員抽選登記 2/2（一）18:00 ~ 2/3（二）23:59 / 會員抽選結果 2/5 (四）18:00 / 2/7（六）12:00 ~ 2/8（日）12:00 / 一般售票 2/8（日）15:00 / 会員販売期間 2/7（土）12:00 ~ 2/8（日）12:00",
+      "venue_name": "新北市工商展覽中心",
+      "address": "新北市五股區五權路1號",
+      "artist_name": "ZUTOMAYO"
+    },
+    {
+      "event_name": "Laufey: A Matter of Time Tour in Taipei",
+      "event_link": "https://tixcraft.com/activity/detail/26_laufey",
+      "ticket_price": "NT$2,980",
+      "ticket_types": "NTD.",
+      "event_time": "2026/05/15 (五) 20:00",
+      "sale_time": "專屬 Visa 卡友的獨家搶票優惠 2026/03/09(一) 10:00 ~ 16:00 Visa 無限卡 / 2026/03/09(一) 18:00 ~ 2026/03/10(二) 10:00 全 Visa 卡友 / Live Nation Taiwan會員預售 2026/03/10 (二) 12:00 ~ 23:59 / 正式開賣 2026/03/11 (三) 12:00",
+      "venue_name": "國立體育大學綜合體育館（林口體育館）",
+      "artist_name": "Laufey"
+    },
+    {
+      "event_name": "WWW music:Tuesday Beach Club",
+      "event_link": "https://tixcraft.com/activity/detail/26_wwwxtbc",
+      "ticket_price": "NT$1,480 / NT$740",
+      "ticket_types": "票 價 ✶ / 身障席"
+    },
+    {
+      "event_name": "【Mastercard專區】羊駝小姐 Malpaca - Now… What? Live in Taipei",
+      "event_link": "https://tixcraft.com/activity/detail/26_ma_c",
+      "ticket_price": "NT$990 / NT$495 / NT$200",
+      "ticket_types": "TWD / 身障席",
+      "event_time": "2026/5/10（日）19:00 / 2026/5/10 (SUN) 19:00",
+      "sale_time": "星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/03/11 (三) 11:00 ~ 23:59 / 2026/03/11 (WED) 11:00 ~ 23:59",
+      "venue_name": "Clapper Studio",
+      "artist_name": "羊駝小姐"
+    },
+    {
+      "event_name": "羊駝小姐 Malpaca - Now… What? Live in Taipei",
+      "event_link": "https://tixcraft.com/activity/detail/26_ma",
+      "ticket_price": "NT$990 / NT$495",
+      "ticket_types": "TWD / 身障席",
+      "event_time": "2026/5/10（日）19:00",
+      "sale_time": "星展萬事達卡卡友預售票(僅限星展萬事達卡信用卡與簽帳金融卡付款) 2026/3/11 11:00~23:59 / Live Nation Taiwan會員預售 2026/03/12 11:00 ~ 23:59 / 正式開賣 2026/3/13 11:00起全面開賣",
+      "venue_name": "Clapper Studio",
+      "artist_name": "羊駝小姐"
+    },
+    {
+      "event_name": "EXO PLANET #6 - EXhOrizon in TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_exotp",
+      "ticket_price": "NT$5,990 / NT$4,990 / NT$3,990 / NT$2,990 / NT$800 / NT$400 / NT$7,290",
+      "ticket_types": "身障席 / VIP套票 / VIP套票(",
+      "event_time": "2026/05/09 (六) 18:00 、2026/05/10(日) 16:00",
+      "sale_time": "EXO-L MEMBERSHIP (GLOBAL) PRESALE 優先購票登記 2026/03/24 (二) 11:00 AM - 2026/03/26 (四) 11:00 AM / 2026/4/1(三) 10 AM - 23:59 PM / Live Nation Taiwan會員預售 2026/4/2(四) 11 AM - 23:59 PM / 正式開賣 2026/4/3(五) 11 AM全面開賣",
+      "venue_name": "台北小巨蛋（TAIPEI ARENA）"
+    },
+    {
+      "event_name": "TIZZY BAC《說出我的名字》最終限定場 ACOUSTIC LIVE",
+      "event_link": "https://tixcraft.com/activity/detail/26_tizzybac",
+      "ticket_price": "NT$1,300 / NT$650",
+      "ticket_types": "身障票",
+      "event_time": "5/09 Sat. 20:00",
+      "sale_time": "正式開賣 3/29 Sun. 12:00",
+      "venue_name": "SUB LIVE",
+      "address": "台北市南港區市民大道八段99號 /入口位於臺北流行音樂中心南基地戶外廣場",
+      "artist_name": "Tizzy Bac"
+    },
+    {
+      "event_name": "ARKis末日方舟:新世紀「ARKpocalypis:Era One」出道首場演唱會",
+      "event_link": "https://tixcraft.com/activity/detail/26_arkistp",
+      "ticket_price": "NT$3,980 / NT$3,580 / NT$3,280 / NT$2,680 / NT$1,980 / NT$1,990",
+      "ticket_types": "身障席",
+      "event_time": "2026.05.09 (六) 17:00",
+      "sale_time": "2026/3/21(六) 12:00 正式開賣",
+      "venue_name": "Legacy TERA",
+      "artist_name": "ARKis"
+    },
+    {
+      "event_name": "齊豫 風采依舊．在 台北 演唱會",
+      "event_link": "https://tixcraft.com/activity/detail/26_chyiyu",
+      "ticket_price": "NT$4,270 / NT$3,770 / NT$3,270 / NT$2,770 / NT$2,270 / NT$1,670",
+      "sale_time": "5月9日(六) 19:30 PM / 拓元售票 1/23 11:00 AM 全面售票",
+      "venue_name": "台北流行音樂中心",
+      "artist_name": "齊豫"
+    },
+    {
+      "event_name": "大誠保經ｘ麋先生 MIXER〈大馬戲團 CircUs Max〉2026馬戲團運動嘉年華",
+      "event_link": "https://tixcraft.com/activity/detail/26_mixer",
+      "ticket_price": "NT$3,000 / NT$2,800 / NT$1,500",
+      "ticket_types": "限量學生票",
+      "event_time": "2026/5/1(五)．5/2(六)．5/3(日)．5/9(六)．5/10(日) 19:00",
+      "sale_time": "開始販售 4/11（Sat.) 11:00 / 2026/4/11(六) / 11:00 限量學生票開賣 / 12:00 拓元售票全面開賣",
+      "venue_name": "高雄輕軌夢時代站旁",
+      "address": "時代大道和成功二路交叉口"
+    },
+    {
+      "event_name": "《Gareth.T －Prince Of nothing 湯令山 - 心零王子》",
+      "event_link": "https://tixcraft.com/activity/detail/26_garetht",
+      "ticket_price": "NT$4,200 / NT$3,600 / NT$2,100",
+      "ticket_types": "一樓站席 / 二樓座席 / 身心障礙者優惠席 / 票價之票券 / 身障席之福利加購資格比照 / 福利票券無法單獨使用，請確認您已持有",
+      "event_time": "2026年5月1日(五) 19:30 (實際演出時間以現場公告為準)",
+      "sale_time": "售票系統:拓元售票系統 2026年3月14日(六) 12:00",
+      "venue_name": "Zepp New Taipei",
+      "address": "新北市新莊區新北大道四段3號8樓",
+      "artist_name": "湯令山"
+    },
+    {
+      "event_name": "2026 pH-1 Live in Taipei",
+      "event_link": "https://tixcraft.com/activity/detail/26_ph1",
+      "ticket_price": "NT$3,580 / NT$3,280 / NT$2,880 / NT$3,080 / NT$3,281 / NT$2,881 / NT$3,081",
+      "ticket_types": "1樓VIP區 / 1樓A區 / 1樓B區 / 2樓座位 / 1樓A區福利組合票價 / 1樓B區福利組合票價 / 2樓座位區福利組合為票價",
+      "sale_time": "2026年4月25日 (六) 18:00 (實際演出時間以現場公告為準)",
+      "venue_name": "Zepp New Taipei",
+      "address": "新北市新莊區新北大道四段3號8樓",
+      "artist_name": "PH-1"
+    },
+    {
+      "event_name": "[身心障礙優惠票購票頁面] CxM [DOUBLE UP] LIVE PARTY in KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_cxm_d",
+      "ticket_price": "NT$6,880 / NT$6,280 / NT$5,880 / NT$4,880 / NT$3,880 / NT$3,440 / NT$1,940",
+      "ticket_types": "一般身障票 / 輪椅身障票",
+      "event_time": "2026/04/25（六）6 PM / 2026/04/26（日）6 PM",
+      "sale_time": "0424 加場場次身心障礙優惠票售票日期 2026/2/7 (六) 12 PM (Local Time) / 售票平台:拓元售票系統 2026/2/1 (日) 12 PM (Local Time)",
+      "venue_name": "高雄巨蛋"
+    },
+    {
+      "event_name": "CxM [DOUBLE UP] LIVE PARTY in KAOHSIUNG",
+      "event_link": "https://tixcraft.com/activity/detail/26_cxm",
+      "ticket_price": "NT$6,880 / NT$6,280 / NT$5,880 / NT$4,880 / NT$3,880 / NT$3,440 / NT$1,940",
+      "ticket_types": "一般身障票 / 輪椅身障票",
+      "event_time": "2026/04/25（六）6 PM / 2026/04/26（日）6 PM",
+      "sale_time": "一般售票日期 2026/2/7 (六) 12 PM (Local Time) / 4/25、4/26兩日退票票券，將於4/24加場販售時間同步釋出 / 售票平台:拓元售票系統 CARAT Membership (GLOBAL) Pre-sale (Weverse)官方會員預購:2026/1/31 (六) 12 PM (Local Time) - 2026/1/31 (六) 11:59 PM (Local Time) / 2026/2/1 (日) 12 PM (Local Time)",
+      "venue_name": "高雄巨蛋"
+    },
+    {
+      "event_name": "amazarashi ASIA TOUR 2026 in TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_amz",
+      "ticket_price": "NT$2,980 / NT$3,190 / NT$1,980 / NT$1,000",
+      "ticket_types": "身障席",
+      "event_time": "2026.04.24（五）19:00（實際演出時間以現場公告為準） / 2026.04.24 (Fri) 19:00 (Actual show time subject to on-site announcement)",
+      "sale_time": "售票時間 2026.01.22 (四) 18:00 – 22:00 APOLOGIES會員先行購票 / 2026.01.25 (日) 18:00 拓元售票系統正式開賣 / January 22, 2026 (Thu) 18:00 – 22:00 — APOLOGIES Members Presale / January 25, 2026 (Sun) 18:00 — General Sale via TixCraft Ticketing System",
+      "venue_name": "Zepp New Taipei",
+      "address": "新北市新莊區新北大道四段3號8樓",
+      "artist_name": "amazarashi"
+    },
+    {
+      "event_name": "Billyrrom Asia Tour 2026 “Jupiter=” in Taipei",
+      "event_link": "https://tixcraft.com/activity/detail/26_billyrrom",
+      "ticket_price": "NT$2,600 / NT$1,800 / NT$2,200 / NT$900",
+      "ticket_types": "VIP / GA / 當日票 / 身障席 / Same-day Ticket / VIP Priority Entry Package ( / Ticket Prices: VIP",
+      "event_time": "2026/4/18 （六）19:00（實際演出時間以現場公告為準） / 2026.4.18 (SAT) 18:30 (Actual performance time based on on-site situation)",
+      "sale_time": "2025.11.07（五）18:00",
+      "venue_name": "Legacy Taipei",
+      "artist_name": "Billyrrom"
+    },
+    {
+      "event_name": "丁噹Della 《夜遊 A Night Tour》高雄巨蛋夜未眠巡迴演唱會",
+      "event_link": "https://tixcraft.com/activity/detail/26_della",
+      "ticket_price": "NT$3,680 / NT$3,280 / NT$2,880 / NT$2,480 / NT$2,280 / NT$1,880 / NT$800 / NT$1,440 / NT$400 / NT$6,000",
+      "ticket_types": "非輪椅身障席 / 我愛你 雙人套票區",
+      "event_time": "04.18 (六) 19:00",
+      "sale_time": "拓元售票 全面開賣 11.29 (六) 12:00",
+      "venue_name": "高雄巨蛋",
+      "artist_name": "丁噹"
+    },
+    {
+      "event_name": "Atree春樂祭II:狂放限定「The Bloom:Limited Edition」",
+      "event_link": "https://tixcraft.com/activity/detail/26_quant0411",
+      "ticket_price": "NT$2,980 / NT$2,780 / NT$2,580 / NT$1,490",
+      "ticket_types": "一樓票A區 / 一樓票B區 / 二樓票 / 身障席",
+      "event_time": "2026/04/11 14:00",
+      "sale_time": "2026.03.14（六）12:00正式啟售",
+      "venue_name": "Zepp New Taipei",
+      "address": "新北市新莊區新北大道四段3號8樓"
+    },
+    {
+      "event_name": "永豐金控:銀行冠名贊助《G.E.M.鄧紫棋 I AM GLORIA 世界巡迴演唱會 2.0 － 台北站》",
+      "event_link": "https://tixcraft.com/activity/detail/26_gem",
+      "ticket_price": "NT$6,880 / NT$5,880 / NT$4,880 / NT$3,880 / NT$2,880 / NT$2,280 / NT$1,680 / NT$2,940 / NT$2,440 / NT$1,940 / NT$1,440",
+      "ticket_types": "身障優惠票 / 一般票價",
+      "event_time": "2026/04/09 (四) 19:30（加場） / 2026/04/10 (五) 19:30 / 2026/04/11 (六) 19:30 / 2026/04/12 (日) 19:30",
+      "sale_time": "正式開賣 2026/02/07 (六) 11:00全面開賣 / 加場開賣 2026/02/11 (三) 11:00全面開賣",
+      "venue_name": "臺北大巨蛋",
+      "artist_name": "鄧紫棋"
+    },
+    {
+      "event_name": "2026 MONSTA X WORLD TOUR [THE X : NEXUS] IN TAIPEI",
+      "event_link": "https://tixcraft.com/activity/detail/26_monstax",
+      "ticket_price": "NT$6,600 / NT$6,200 / NT$5,800 / NT$4,600 / NT$3,300",
+      "ticket_types": "身障區",
+      "event_time": "2026年4月4日(六) 18:00 (實際演出時間以現場公告為準)",
+      "sale_time": "售票系統:拓元售票系統 2026年1月24日(六) 15:00",
+      "venue_name": "新北市工商展覽中心",
+      "address": "新北市五股區五權路1號",
+      "artist_name": "MONSTA X"
+    },
+    {
+      "event_name": "2025-26 TPBL新竹御嵿攻城獅主場賽事",
+      "event_link": "https://tixcraft.com/activity/detail/25_lioneers",
+      "ticket_price": "NT$500 / NT$1,299 / NT$5,000 / NT$4,000 / NT$2,000 / NT$1,200 / NT$1,000 / NT$700 / NT$600 / NT$400 / NT$300",
+      "ticket_types": "法大炸雞雙人Chill席🍴 特價",
+      "event_time": "2/13(五)17:00",
+      "sale_time": "季票會員優先購票 2026年2月9日（一）12:00 起 至 2026年2月10日（二）23:59止 / 權益會員優先購票 2026年2月11日（三）12:00 起 至 2026年2月12日（四）17:00止 / 單場票全面開賣 2026年2月13日（五）17:00 起",
+      "venue_name": "新竹縣體育館"
+    },
+    {
+      "event_name": "2026北海道日本火腿鬥士隊例行賽入場券",
+      "event_link": "https://tixcraft.com/activity/detail/26_hnf",
+      "event_time": "10:30，預計換取時間:10:00 - 比賽開始後 2 小時截止 / 16:30，預計換取時間:16:00 - 比賽開始後 2 小時截止",
+      "sale_time": "入場券開賣時間 2026/2/1 (日) 13:00~",
+      "venue_name": "ES CON FIELD HOKKAIDO Coca-cola Gate 左側售票處"
+    },
+    {
+      "event_name": "2026福岡軟銀鷹例行賽門票",
+      "event_link": "https://tixcraft.com/activity/detail/26_softbankh",
+      "sale_time": "販售開始日 ① 3/3～6/25 場次:2026/02/03 12:00 PM / ② 7/1～9/27 場次:2026/04/19",
+      "venue_name": "MIZUHO PayPay Dome FUKUOKA"
+    },
+    {
+      "event_name": "2025-26 TPBL新竹御嵿攻城獅主場賽事【季套票專區】",
+      "event_link": "https://tixcraft.com/activity/detail/25_lioneers_p",
+      "ticket_price": "NT$84,499 / NT$81,000 / NT$68,299 / NT$64,800 / NT$35,899 / NT$32,400 / NT$35,399 / NT$22,439 / NT$19,440 / NT$18,699 / NT$16,200 / NT$14,139 / NT$11,340 / NT$11,519 / NT$9,720",
+      "sale_time": "季票會員優先購票 2025年9月22日（一）12:00 起 至 2025年9月23日（二）23:59止 / 權益會員優先購票 2025年9月24日（三）12:00 起 至 2025年9月25日（四）23:59止 / 季票全面開賣 2025年9月26日（五）12:00 至 2025年9月28日（日）23:59止",
+      "venue_name": "新竹縣立體育館"
+    }
+  ]
+}

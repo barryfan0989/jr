@@ -1,0 +1,528 @@
+"""
+遠大售票系統爬蟲 v7 ── 最終版（精準解析 HTML 文字格式）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+從截圖確認的活動頁面真實格式：
+Date | 2026.4.24
+Time | VIP DOOR 18:00 / GA DOOR 18:30 / START 19:30
+Venue | Legacy Taipei
+Ticket | VIP 3200 / ADV 2000 / DOOR 2500
+2026.2.26 19:00 | 遠大售票 & ibon 同步啟售 ← 搶票時間
+
+安裝：
+pip install playwright requests pandas openpyxl
+playwright install chromium
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+import json, re, csv, os, time, random, requests
+import pandas as pd
+from datetime import datetime
+from playwright.sync_api import sync_playwright, Page
+
+══════════════════════════════════════════════════
+
+⚙️ 設定區
+
+══════════════════════════════════════════════════
+
+BASE_URL = "https://ticketplus.com.tw"
+APIS_BASE = "https://apis.ticketplus.com.tw"
+OUTPUT_DIR = "ticketplus_output"
+
+SHOW_BROWSER = True # True = 看到畫面；False = 背景執行
+MAX_ITEMS = 0 # 0 = 全部；填數字限制（如 5）
+
+HEADERS = {
+"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+"Accept": "application/json, text/plain, /",
+"Accept-Language": "zh-TW,zh;q=0.9",
+"Referer": BASE_URL + "/",
+}
+
+══════════════════════════════════════════════════
+
+工具
+
+══════════════════════════════════════════════════
+
+def clean(t) -> str:
+return re.sub(r"\s+", " ", str(t or "")).strip()
+
+def rand_sleep(a=1.0, b=2.5):
+time.sleep(random.uniform(a, b))
+
+══════════════════════════════════════════════════
+
+STEP 1：取得所有活動 ID 清單
+
+══════════════════════════════════════════════════
+
+def fetch_event_list() -> dict:
+"""
+解析 mainEvents.json
+結構：{ "allEventMainPageInfo": { "{ID}": {title, start_date, ...} } }
+"""
+url = f"{APIS_BASE}/config/api/v1/getS3?path=main/mainEvents.json"
+session = requests.Session()
+session.headers.update(HEADERS)
+
+print(f"  [GET] {url}")
+try:
+    resp = session.get(url, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+except Exception as e:
+    print(f"  ❌ 失敗：{e}")
+    return {}
+
+# 活動 ID 是 dict 的 key（已確認）
+info_map  = data.get("allEventMainPageInfo", {})
+order_ids = data.get("allEventId", list(info_map.keys()))
+
+print(f"  ✅ 共 {len(info_map)} 筆活動")
+
+# 依照 allEventId 順序排列
+ordered = {}
+for eid in order_ids:
+    if eid in info_map:
+        ordered[eid] = info_map[eid]
+for eid, v in info_map.items():
+    if eid not in ordered:
+        ordered[eid] = v
+
+return ordered
+══════════════════════════════════════════════════
+
+STEP 2：解析活動頁面文字（核心邏輯）
+
+頁面 HTML 結構（已從截圖確認）：
+
+
+Date | 2026.4.24
+
+
+
+Venue | Legacy Taipei
+
+
+
+Ticket | VIP 3200 / ADV 2000 / DOOR 2500
+
+
+
+2026.2.26 19:00 | 遠大售票 & ibon 同步啟售
+
+
+══════════════════════════════════════════════════
+
+def parse_event_page(page: Page, url: str, event_id: str) -> dict:
+"""
+精準解析活動頁面，提取以下欄位：
+- 活動日期 / 演出時間
+- 場地
+- 票價
+- 搶票時間
+- 活動狀態
+- 活動描述
+"""
+result = {}
+intercepted_apis = {}
+
+# 攔截 API
+def on_resp(r):
+    u  = r.url
+    ct = r.headers.get("content-type", "")
+    skip = ["lang/", "i18n/", "gtm", "analytics", "google",
+            "facebook", "clarity", "newrelic", "__webpack", "hot-update"]
+    if any(x in u for x in skip): return
+    if "json" in ct or ".json" in u:
+        try:
+            d = r.json()
+            if d: intercepted_apis[u] = d
+        except: pass
+
+page.on("response", on_resp)
+
+# ── 載入頁面 ────────────────────────────────────────
+try:
+    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    try:
+        page.wait_for_selector("p span, .content, [class*='desc'], h1", timeout=8000)
+    except: pass
+    page.wait_for_timeout(2000)
+    page.evaluate("window.scrollTo({top: document.body.scrollHeight / 2, behavior:'smooth'})")
+    page.wait_for_timeout(600)
+    page.evaluate("window.scrollTo({top: document.body.scrollHeight, behavior:'smooth'})")
+    page.wait_for_timeout(600)
+except Exception as e:
+    print(f"    ⚠️  載入錯誤：{e}")
+
+page.remove_listener("response", on_resp)
+
+# ── 取得頁面完整文字 ────────────────────────────────
+try:
+    full_text = clean(page.inner_text("body"))
+except:
+    full_text = ""
+
+# ── 取得所有 <p> 段落文字（最精準）────────────────────
+paragraphs = []
+try:
+    p_els = page.query_selector_all("p")
+    for el in p_els:
+        t = clean(el.inner_text())
+        if t and len(t) > 1:
+            paragraphs.append(t)
+except: pass
+
+# ── 核心解析：逐段落匹配 ────────────────────────────
+#
+# 格式範例（| 分隔）：
+#   "Date | 2026.4.24"
+#   "Time | VIP DOOR 18:00 / GA DOOR 18:30 / START 19:30"
+#   "Venue | Legacy Taipei"
+#   "Ticket | VIP 3200 / ADV 2000 / DOOR 2500"
+#   "2026.2.26 19:00 | 遠大售票 & ibon 同步啟售"
+#   也可能是中文冒號格式：
+#   "演出日期：2026年3月1日"
+#   "演出場地：..."
+
+dates_found   = []
+times_found   = []
+venues_found  = []
+tickets_found = []
+sale_found    = []
+
+for para in paragraphs:
+    p = para.strip()
+    if not p: continue
+
+    # ── 日期行 ──────────────────────────────────────
+    # 匹配：Date | 2026.4.24 / 演出日期：2026年4月24日 / 2026-04-24
+    if re.match(r"(?i)date|演出時間\s*[|｜：:]", p):
+        v = re.sub(r"(?i)^date\s*[|｜：:]\s*", "", p).strip()
+        dates_found.append(v)
+    elif re.match(r"(?:演出日期|活動日期|日期)\s*[|｜：:]", p):
+        v = re.sub(r"^.*?[|｜：:]\s*", "", p).strip()
+        dates_found.append(v)
+
+    # ── 時間行 ──────────────────────────────────────
+    # 匹配：Time | VIP DOOR 18:00 / GA DOOR 18:30 / START 19:30
+    elif re.match(r"(?i)time\s*[|｜：:]", p):
+        v = re.sub(r"(?i)^time\s*[|｜：:]\s*", "", p).strip()
+        times_found.append(v)
+    elif re.match(r"(?:演出時間|開場時間|時間)\s*[|｜：:]", p):
+        v = re.sub(r"^.*?[|｜：:]\s*", "", p).strip()
+        times_found.append(v)
+
+    # ── 場地行 ──────────────────────────────────────
+    # 匹配：Venue | Legacy Taipei / 演出場地：...
+    elif re.match(r"(?i)venue\s*[|｜：:]", p):
+        v = re.sub(r"(?i)^venue\s*[|｜：:]\s*", "", p).strip()
+        venues_found.append(v)
+    elif re.match(r"(?:演出場地|表演場地|場地|地點|Venue)\s*[|｜：:]", p):
+        v = re.sub(r"^.*?[|｜：:]\s*", "", p).strip()
+        venues_found.append(v)
+
+    # ── 票價行 ──────────────────────────────────────
+    # 匹配：Ticket | VIP 3200 / ADV 2000 / DOOR 2500
+    elif re.match(r"(?i)ticket\s*[|｜：:]", p):
+        v = re.sub(r"(?i)^ticket\s*[|｜：:]\s*", "", p).strip()
+        tickets_found.append(v)
+    elif re.match(r"(?:票價|Ticket Price|Price)\s*[|｜：:]", p):
+        v = re.sub(r"^.*?[|｜：:]\s*", "", p).strip()
+        tickets_found.append(v)
+    # 含票價數字的段落（如 VIP 3200 / ADV 2000）
+    elif re.search(r"(?:VIP|ADV|DOOR|GA|一般|早鳥)\s*\d{3,}", p, re.I):
+        if "|" not in p and "日" not in p:  # 排除日期行
+            tickets_found.append(p)
+
+    # ── 搶票時間行 ──────────────────────────────────
+    # 匹配：2026.2.26 19:00 | 遠大售票 & ibon 同步啟售
+    # 或：開賣時間 / 售票時間
+    elif re.search(r"(遠大售票|啟售|開賣|開售|ibon|售票|KKTIX)", p, re.I):
+        sale_found.append(p)
+    elif re.match(r"(?:搶票時間|開賣時間|售票時間|開售)\s*[|｜：:]", p):
+        v = re.sub(r"^.*?[|｜：:]\s*", "", p).strip()
+        sale_found.append(v)
+
+# ── 組合日期 + 時間 ──────────────────────────────────
+if dates_found and times_found:
+    result["活動日期"] = " | ".join(dates_found)
+    result["演出時間"] = " | ".join(times_found)
+elif dates_found:
+    result["活動日期"] = " | ".join(dates_found)
+elif times_found:
+    result["活動日期"] = " | ".join(times_found)
+else:
+    # fallback：從全文抓日期
+    date_matches = re.findall(
+        r"\d{4}[./-年]\d{1,2}[./-月]\d{1,2}[日]?"
+        r"(?:\s*[（(][一二三四五六日][）)])?"
+        r"(?:\s*\d{2}:\d{2})?",
+        full_text
+    )
+    if date_matches:
+        result["活動日期"] = " ／ ".join(dict.fromkeys(date_matches[:4]))
+
+# ── 場地 ─────────────────────────────────────────────
+if venues_found:
+    result["活動場地"] = " / ".join(venues_found)
+else:
+    m = re.search(r"(?:Venue|場地|地點)[|｜：:]\s*([^\n|｜]{3,50})", full_text, re.I)
+    if m:
+        result["活動場地"] = m.group(1).strip()
+
+# ── 票價 ─────────────────────────────────────────────
+if tickets_found:
+    # 格式化：VIP 3200 / ADV 2000 / DOOR 2500 → VIP：NT$3200 ｜ ADV：NT$2000 ...
+    raw = " / ".join(tickets_found)
+    # 嘗試拆解成清楚格式
+    parts = re.split(r"\s*/\s*", raw)
+    formatted = []
+    for part in parts:
+        # 例：VIP 3200 → VIP：NT$3200
+        m = re.match(r"([A-Za-z\u4e00-\u9fff\s]+?)\s+(\d{3,})", part.strip())
+        if m:
+            formatted.append(f"{m.group(1).strip()}：NT${m.group(2)}")
+        elif re.search(r"\d{3,}", part):
+            formatted.append(part.strip())
+    result["票價資訊"] = " ｜ ".join(formatted) if formatted else raw
+else:
+    # fallback
+    prices = re.findall(r"(?:NT\$?|＄)\s*[\d,]+|[\d,]{3,}\s*元", full_text)
+    if prices:
+        result["票價資訊"] = " ｜ ".join(dict.fromkeys(prices[:8]))
+
+# ── 搶票時間 ─────────────────────────────────────────
+if sale_found:
+    result["搶票時間"] = " / ".join(sale_found)
+else:
+    m = re.search(
+        r"(\d{4}[./-]\d{1,2}[./-]\d{1,2}\s+\d{2}:\d{2})"
+        r"[^\n]*?(開賣|售票|啟售|ibon|遠大)",
+        full_text
+    )
+    if m:
+        result["搶票時間"] = m.group(0).strip()
+
+# ── 活動狀態 ─────────────────────────────────────────
+for kw, st in [
+    ("SOLD OUT","已售完"), ("售完","已售完"), ("完售","已售完"),
+    ("尚未開賣","尚未開賣"), ("即將開售","即將開售"), ("即將開賣","即將開售"),
+    ("售票中","售票中"), ("購票中","售票中"),
+    ("已結束","已結束"), ("已取消","已取消"),
+]:
+    if kw in full_text:
+        result["活動狀態"] = st
+        break
+
+# ── 補充：從 API 攔截取詳情 ──────────────────────────
+for api_url, api_data in intercepted_apis.items():
+    if event_id in api_url or "ticket" in api_url.lower():
+        api_parsed = _parse_api_supplement(api_data)
+        # 只用 API 補充還空的欄位
+        for k, v in api_parsed.items():
+            if v and not result.get(k):
+                result[k] = v
+
+# ── 活動描述（取頁面最長段落）────────────────────────
+if not result.get("活動描述"):
+    long_paras = [p for p in paragraphs if len(p) > 30
+                  and not any(x in p for x in ["Date", "Time", "Venue", "Ticket", "Cookie", "Copyright"])]
+    if long_paras:
+        result["活動描述"] = long_paras[0][:400]
+
+return result
+def _parse_api_supplement(raw) -> dict:
+"""從攔截的 API 補充場地/票價/搶票時間"""
+if not raw: return {}
+d = raw if isinstance(raw, dict) else (raw[0] if raw else {})
+
+sup = {}
+# 場地
+for k in ("venue","venueName","location","place","hall"):
+    v = d.get(k)
+    if v:
+        sup["活動場地"] = v.get("name",str(v)) if isinstance(v,dict) else str(v)
+        break
+# 票價
+for k in ("tickets","prices","ticketTypes","ticketPrices","areas","priceList"):
+    v = d.get(k)
+    if v:
+        sup["票價資訊"] = _fmt_prices(v)
+        if sup["票價資訊"]: break
+# 搶票時間
+for k in ("saleStartDate","onSaleDate","saleDate","sellStartTime","openSaleTime"):
+    v = d.get(k)
+    if v: sup["搶票時間"] = str(v); break
+return sup
+def _fmt_prices(prices) -> str:
+if isinstance(prices, list):
+parts = []
+for p in prices:
+if isinstance(p, dict):
+name = p.get("name") or p.get("areaName") or ""
+amt = p.get("price") or p.get("amount") or ""
+parts.append(f"{name}：NT${amt}" if name else f"NT${amt}")
+return " ｜ ".join(parts)
+return str(prices) if prices else ""
+
+══════════════════════════════════════════════════
+
+建立反偵測瀏覽器
+
+══════════════════════════════════════════════════
+
+def make_browser(pw):
+browser = pw.chromium.launch(
+headless=not SHOW_BROWSER,
+slow_mo=80,
+args=["--disable-blink-features=AutomationControlled",
+"--no-sandbox", "--disable-dev-shm-usage"],
+)
+ctx = browser.new_context(
+user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+locale="zh-TW",
+timezone_id="Asia/Taipei",
+viewport={"width": 1440, "height": 900},
+extra_http_headers={
+"Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8",
+"sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124"',
+}
+)
+ctx.add_init_script("""
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+window.chrome = {runtime: {}};
+""")
+return browser, ctx
+
+══════════════════════════════════════════════════
+
+儲存結果
+
+══════════════════════════════════════════════════
+
+ALL_KEYS = [
+"活動ID", "活動名稱", "活動日期", "演出時間", "搶票時間",
+"活動場地", "票價資訊", "活動狀態",
+"活動描述", "圖片URL", "活動頁面", "爬取時間",
+]
+
+def save_results(activities: list[dict]):
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+norm = [{k: str(a.get(k, "")) for k in ALL_KEYS} for a in activities]
+
+j = os.path.join(OUTPUT_DIR, "ticketplus_activities.json")
+with open(j, "w", encoding="utf-8") as f:
+    json.dump(norm, f, ensure_ascii=False, indent=2)
+print(f"💾 JSON  → {j}")
+
+c = os.path.join(OUTPUT_DIR, "ticketplus_activities.csv")
+with open(c, "w", newline="", encoding="utf-8-sig") as f:
+    w = csv.DictWriter(f, fieldnames=ALL_KEYS)
+    w.writeheader(); w.writerows(norm)
+print(f"💾 CSV   → {c}")
+
+try:
+    x = os.path.join(OUTPUT_DIR, "ticketplus_activities.xlsx")
+    df = pd.DataFrame(norm)
+    with pd.ExcelWriter(x, engine="openpyxl") as writer:
+        df.to_excel(writer, sheet_name="活動列表", index=False)
+        ws = writer.sheets["活動列表"]
+        ws.freeze_panes = "A2"
+        widths = {
+            "活動ID":34, "活動名稱":42, "活動日期":22, "演出時間":35,
+            "搶票時間":30, "活動場地":22, "票價資訊":40, "活動狀態":12,
+            "活動描述":55, "圖片URL":50, "活動頁面":60, "爬取時間":20,
+        }
+        for col in ws.columns:
+            ws.column_dimensions[col[0].column_letter].width = widths.get(col[0].value, 18)
+    print(f"💾 Excel → {x}")
+except Exception as e:
+    print(f"⚠️  Excel：{e}")
+══════════════════════════════════════════════════
+
+主程式
+
+══════════════════════════════════════════════════
+
+def main():
+print("═" * 65)
+print(" 🎫 遠大售票爬蟲 v7（精準解析 HTML 文字格式）")
+print(f" 🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print("═" * 65)
+
+# STEP 1：取得活動清單
+print("\n[步驟1] 取得活動 ID 清單...")
+events = fetch_event_list()
+if not events:
+    print("❌ 無法取得活動清單")
+    return
+
+if MAX_ITEMS > 0:
+    events = dict(list(events.items())[:MAX_ITEMS])
+    print(f"⚙️  測試模式：前 {MAX_ITEMS} 筆")
+
+# STEP 2：逐一點入頁面解析
+print(f"\n[步驟2] 逐一進入 {len(events)} 個活動頁面...\n")
+all_results = []
+
+with sync_playwright() as pw:
+    browser, ctx = make_browser(pw)
+    page = ctx.new_page()
+
+    for idx, (event_id, base) in enumerate(events.items(), 1):
+        title      = base.get("title", "未知")
+        start_date = base.get("start_date", "")
+        end_date   = base.get("end_date", "")
+        img_url    = (base.get("picBigBanner") or
+                      base.get("picBigHomeThumbnail") or "")
+        activity_url = f"{BASE_URL}/activity/{event_id}"
+
+        print(f"[{idx:03d}/{len(events)}] {title}")
+        print(f"  🔗 {activity_url}")
+
+        # 解析頁面
+        parsed = parse_event_page(page, activity_url, event_id)
+
+        # 組合最終結果
+        # 活動日期：如頁面有就用頁面的，否則用 API 的
+        if not parsed.get("活動日期"):
+            if start_date and end_date and start_date != end_date:
+                parsed["活動日期"] = f"{start_date} ～ {end_date}"
+            elif start_date:
+                parsed["活動日期"] = start_date
+
+        final = {
+            "活動ID":   event_id,
+            "活動名稱": title,
+            "圖片URL":  img_url,
+            "活動頁面": activity_url,
+            "爬取時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            **parsed,
+        }
+        all_results.append(final)
+
+        # 印出結果
+        print(f"  ✓ 日期   : {final.get('活動日期', '—')}")
+        print(f"  ✓ 演出時間: {final.get('演出時間', '—')}")
+        print(f"  ✓ 場地   : {final.get('活動場地', '—')}")
+        print(f"  ✓ 票價   : {final.get('票價資訊', '—')}")
+        print(f"  ✓ 搶票   : {final.get('搶票時間', '—')}")
+        print(f"  ✓ 狀態   : {final.get('活動狀態', '—')}")
+        print()
+
+        rand_sleep(0.8, 1.8)
+
+    browser.close()
+
+# STEP 3：儲存
+print("═" * 65)
+print(f"  🏁 完成！共 {len(all_results)} 筆")
+print("═" * 65)
+save_results(all_results)
+print(f"\n📂 {os.path.abspath(OUTPUT_DIR)}/")
+if name == "main":
+main()

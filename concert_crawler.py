@@ -23,6 +23,12 @@ import google.generativeai as genai
 
 gemini_model = None
 
+# 已知非活動場地的固定頁尾/公司地址，避免污染活動地址欄位。
+_KNOWN_FAKE_ADDRESSES = [
+    "台中市北區中清路一段447號",
+    "中清路一段447號",
+]
+
 
 def get_gemini_model():
     """Lazily init Gemini model using env var GEMINI_API_KEY."""
