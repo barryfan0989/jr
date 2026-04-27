@@ -42,6 +42,8 @@ DB_CONFIG = dict(
     charset="utf8mb4",
     collation="utf8mb4_unicode_ci",
     autocommit=False,
+    ssl_verify_cert=False,
+    ssl_verify_identity=False,
 )
 
 FAKE_ADDRESSES = ["中清路一段447號", "台中市北區中清路"]

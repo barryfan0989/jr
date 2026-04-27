@@ -34,6 +34,8 @@ DB_CONFIG = dict(
     charset="utf8mb4",
     collation="utf8mb4_unicode_ci",
     autocommit=False,
+    ssl_verify_cert=False,
+    ssl_verify_identity=False,
 )
 
 HTTP_TIMEOUT = 12
