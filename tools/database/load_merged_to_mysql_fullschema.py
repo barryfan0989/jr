@@ -154,8 +154,14 @@ def split_artists(artist_text: str, event_name: str) -> list[str]:
 
 
 def recreate_tables(cur):
+    cur.execute("SET FOREIGN_KEY_CHECKS=0")
     cur.execute("DROP TABLE IF EXISTS event_artists")
     cur.execute("DROP TABLE IF EXISTS artist_news")
+    cur.execute("DROP TABLE IF EXISTS event_schedules")
+    cur.execute("DROP TABLE IF EXISTS ticket_pricing")
+    cur.execute("DROP TABLE IF EXISTS sales_channels")
+    cur.execute("DROP TABLE IF EXISTS event_segments")
+    cur.execute("DROP TABLE IF EXISTS artist_segments")
     cur.execute("DROP TABLE IF EXISTS events")
     cur.execute("DROP TABLE IF EXISTS artists")
     cur.execute("DROP TABLE IF EXISTS venues")
@@ -259,6 +265,8 @@ def recreate_tables(cur):
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         """
     )
+
+    cur.execute("SET FOREIGN_KEY_CHECKS=1")
 
 
 def get_or_create_venue(cur, venue_name: str, venue_address: str) -> int | None:

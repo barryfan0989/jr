@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import mysql.connector
+import datetime
 
 conn = mysql.connector.connect(
     host='ticketdb-ticket63.f.aivencloud.com',
@@ -90,20 +91,31 @@ for event_id, source_site, sale_text in event_rows:
     start_date = None
     start_time = None
 
+    # parse dates safely and validate ranges
     m1 = re.search(r'(\d{4})/(\d{1,2})/(\d{1,2})', sale_text)
     if m1:
-        y, m, d = m1.groups()
-        start_date = f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+        y, m, d = map(int, m1.groups())
+        if 1 <= m <= 12 and 1 <= d <= 31:
+            start_date = f"{y:04d}-{m:02d}-{d:02d}"
+        else:
+            start_date = None
     else:
         m2 = re.search(r'(\d{1,2})/(\d{1,2})', sale_text)
         if m2:
-            m, d = m2.groups()
-            start_date = f"2026-{int(m):02d}-{int(d):02d}"
+            mm, dd = map(int, m2.groups())
+            year = datetime.date.today().year
+            if 1 <= mm <= 12 and 1 <= dd <= 31:
+                start_date = f"{year}-{mm:02d}-{dd:02d}"
+            else:
+                start_date = None
 
     mt = re.search(r'(\d{1,2}):(\d{2})', sale_text)
     if mt:
-        hh, mm = mt.groups()
-        start_time = f"{int(hh):02d}:{int(mm):02d}:00"
+        hh, mm = map(int, mt.groups())
+        if 0 <= hh <= 23 and 0 <= mm <= 59:
+            start_time = f"{hh:02d}:{mm:02d}:00"
+        else:
+            start_time = None
 
     cur.execute(
         "INSERT INTO sales_channels (event_id, platform, channel_type, start_date, start_time, sales_status, notes) VALUES (%s,%s,%s,%s,%s,%s,%s)",
